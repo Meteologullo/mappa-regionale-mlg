@@ -132,9 +132,11 @@ stazioni.forEach((s) => bounds.extend([s.lat, s.lon]));
 var map = L.map("map", { gestureHandling: true });
 map.fitBounds(bounds.pad(0.2));
 
-L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png", {
+// ✅ Modifica: Tema scuro moderno (CartoDB Dark)
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  subdomains: "abcd",
   maxZoom: 18,
-  attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a>, &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+  attribution: '&copy; <a href="https://carto.com/">CARTO</a>, © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
 }).addTo(map);
 
 function getColor(temp) {
