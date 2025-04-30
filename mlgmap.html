@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" />
 <style>
 body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; background: #f4f4f4; }
-#map { height: 70vh; width: 100%; border-bottom: 2px solid #ccc; }
+#map { height: 75vh; width: 100%; border-bottom: 2px solid #ccc; }
 .temperature-label {
   display: flex;
   align-items: center;
@@ -122,15 +122,20 @@ const stazioni = [
   { nome: "Montescuro - Celico", lat: 39.33, lon: 16.4, quota: "1643 m", provincia: "CS", regione: "Calabria", area: "Vetta della Sila Grande", stationId: "ICELIC1", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://esempio.it/stazioni/montescuro-celico" },
   { nome: "Cosenza - Campagnano", lat: 39.31, lon: 16.23, quota: "234 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN20", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://esempio.it/stazioni/campagnano" },
   { nome: "Mendicino - Tivolille Pasquali", lat: 39.28, lon: 16.2, quota: "431 m", provincia: "CS", regione: "Calabria", area: "Catena Costiera", stationId: "IMENDI13", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://esempio.it/stazioni/mendicino" },
-  { nome: "Casali del Manco - Morelli Soprana", lat: 39.28, lon: 16.29, quota: "389 m", provincia: "CS", regione: "Calabria", area: "collina Valle del Crati", stationId: "ICASAL40", apiKey: "b368cd08174d424fa8cd08174d424f20", webcam: "", linkStazione: "https://esempio.it/stazioni/morelli-soprana" }
+  { nome: "Casali del Manco - Morelli Soprana", lat: 39.28, lon: 16.29, quota: "389 m", provincia: "CS", regione: "Calabria", area: "collina Valle del Crati", stationId: "ICASAL40", apiKey: "b368cd08174d424fa8cd08174d424f20", webcam: "", linkStazione: "https://esempio.it/stazioni/morelli-soprana" },
+  // Aggiungi qui le nuove stazioni
+  { nome: "Nuova Stazione 1", lat: 39.40, lon: 16.50, quota: "100 m", provincia: "CS", regione: "Calabria", area: "Nuova Area", stationId: "INUST1", apiKey: "123456789", webcam: "", linkStazione: "https://esempio.it/stazioni/nuova-stazione-1" }
 ];
 
 let datiTabella = [];
 var bounds = L.latLngBounds([]);
 stazioni.forEach((s) => bounds.extend([s.lat, s.lon]));
 
-var map = L.map("map", { gestureHandling: true });
-map.fitBounds(bounds.pad(0.2));
+var map = L.map("map", { 
+  gestureHandling: true,
+  zoomControl: false // Disabilitiamo il controllo dello zoom se non necessario
+});
+map.fitBounds(bounds.pad(0.3)); // Aumentiamo leggermente il padding per includere una porzione più ampia della Calabria
 
 // ✅ TILE LAYER CORRETTO
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
