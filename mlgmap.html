@@ -5,9 +5,10 @@
 <title>Mappa Meteo Calabria</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" />
 <style>
 body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
-#map { height: 80vh; width: 100%; }
+#map { height: 70vh; width: 100%; }
 .temperature-label { display: flex; align-items: center; justify-content: center; border-radius: 50%; width: 40px; height: 40px; font-weight: bold; font-size: 14px; border: 2px solid #000; color: #000; }
 .popup-title { font-size: 16px; font-weight: bold; }
 .popup-sub { font-size: 12px; color: #666; margin-bottom: 6px; }
@@ -27,6 +28,10 @@ a.btn { color: white !important; }
 
 <div id="map"></div>
 
+<div style="text-align: center; font-size: 14px; padding: 5px 10px; background: #f0f0f0;">
+🔍 Usa due dita per zoommare sulla mappa sui dispositivi mobili
+</div>
+
 <div style="padding: 10px;">
 <label for="filtro-parametri">Mostra parametri aggiuntivi:</label>
 <select id="filtro-parametri" onchange="aggiornaTabella()">
@@ -45,6 +50,7 @@ a.btn { color: white !important; }
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.js"></script>
 <script>
 function calcolaCondizioneTermica(temp, umidita) {
 if (isNaN(temp) || isNaN(umidita)) return "-";
@@ -82,12 +88,15 @@ let datiTabella = [];
 
 var bounds = L.latLngBounds([]);
 stazioni.forEach((s) => bounds.extend([s.lat, s.lon]));
-var map = L.map("map");
+
+var map = L.map("map", {
+    gestureHandling: true
+});
 map.fitBounds(bounds.pad(0.2));
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-maxZoom: 18,
-attribution: "&copy; OpenStreetMap contributors",
+    maxZoom: 18,
+    attribution: "&copy; OpenStreetMap contributors",
 }).addTo(map);
 
 function getColor(temp) {
@@ -111,7 +120,6 @@ if (temp <= 42) return "#FF69B4";
 return "#8B0000";
 }
 
-// NUOVA FUNZIONE AGGIUNTA
 function getTextColorForBackground(bgColor) {
 const r = parseInt(bgColor.substr(1, 2), 16);
 const g = parseInt(bgColor.substr(3, 2), 16);
