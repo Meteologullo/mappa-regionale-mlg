@@ -132,11 +132,10 @@ stazioni.forEach((s) => bounds.extend([s.lat, s.lon]));
 var map = L.map("map", { gestureHandling: true });
 map.fitBounds(bounds.pad(0.2));
 
-// ✅ Modifica: Tema scuro moderno (CartoDB Dark)
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-  subdomains: "abcd",
+// ✅ TILE LAYER CORRETTO
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 18,
-  attribution: '&copy; <a href="https://carto.com/">CARTO</a>, © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+  attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
 }).addTo(map);
 
 function getColor(temp) {
