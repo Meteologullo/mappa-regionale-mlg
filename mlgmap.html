@@ -80,10 +80,7 @@
 
     let datiTabella = [];
 
-    var bounds = L.latLngBounds([]);
-    stazioni.forEach((s) => bounds.extend([s.lat, s.lon]));
-    var map = L.map("map");
-    map.fitBounds(bounds.pad(0.2));
+    var map = L.map("map").setView([39.15, 16.5], 8); // ✅ centro Calabria, zoom giusto
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
