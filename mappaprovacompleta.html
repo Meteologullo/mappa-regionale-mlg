@@ -1,0 +1,142 @@
+
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<title>Mappa Meteo Calabria + ilmeteo.it + Lo Gullo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+#map { height: 75vh; width: 100%; }
+.temperature-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-weight: bold;
+  font-size: 14px;
+  border: 2px solid #fff;
+  color: #000;
+}
+#tabella {
+  padding: 10px;
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="tabella"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+
+function getColor(temp) {
+  if (temp <= -10) return "#00008B";
+  if (temp <= -5) return "#0000CD";
+  if (temp <= 0) return "#1E90FF";
+  if (temp <= 5) return "#87CEFA";
+  if (temp <= 10) return "#00FA9A";
+  if (temp <= 14) return "#00FF7F";
+  if (temp <= 18) return "#ADFF2F";
+  if (temp <= 22) return "#FFFF00";
+  if (temp <= 25) return "#FFD700";
+  if (temp <= 28) return "#FFA500";
+  if (temp <= 30) return "#FF8C00";
+  if (temp <= 33) return "#FF4500";
+  if (temp <= 36) return "#B22222";
+  if (temp <= 42) return "#FF69B4";
+  return "#8B0000";
+}
+
+function getTextColorForBackground(bgColor) {
+  const r = parseInt(bgColor.substr(1,2),16);
+  const g = parseInt(bgColor.substr(3,2),16);
+  const b = parseInt(bgColor.substr(5,2),16);
+  const luminance = 0.299*r + 0.587*g + 0.114*b;
+  return luminance > 128 ? "black" : "white";
+}
+
+function calcolaCondizioneTermica(temp) {
+  if (isNaN(temp)) return "-";
+  if (temp <= 0) return "Freddo intenso";
+  if (temp <= 10) return "Fresco";
+  if (temp <= 20) return "Confortevole";
+  if (temp <= 30) return "Caldo";
+  return "Caldo estremo";
+}
+
+var map = L.map("map").setView([39.3, 16.25], 8);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 18,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+let datiTabella = [];
+
+// Stazioni Meteo Lo Gullo
+const stazioniLoGullo = [
+  { nome: "Cosenza - Vaglio Lise", lat: 39.32, lon: 16.26, quota: "208 m", temp: 26.5 },
+  { nome: "Amantea Spiaggia", lat: 39.13, lon: 16.07, quota: "0 m", temp: 29.3 }
+];
+
+stazioniLoGullo.forEach(s => {
+  const colore = getColor(s.temp);
+  const textColor = getTextColorForBackground(colore);
+  const icona = L.divIcon({
+    className: "temperature-label",
+    html: `<span style="color:${textColor}">★ ${s.temp}°</span>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  });
+  const marker = L.marker([s.lat, s.lon], { icon: icona }).addTo(map);
+  marker.getElement().style.backgroundColor = colore;
+  const condizione = calcolaCondizioneTermica(s.temp);
+  const popup = `<b>${s.nome}</b><br>Temp: ${s.temp}°C<br>Quota: ${s.quota}<br>${condizione}<br><b>Stazione di Meteo Lo Gullo</b>`;
+  marker.bindPopup(popup);
+  datiTabella.push({ nome: "★ " + s.nome, temp: s.temp, fonte: "Meteo Lo Gullo" });
+});
+
+// Stazioni da ilmeteo.it
+fetch("https://www.ilmeteo.it/portale/mappe_rete_osservazioni?bbox=37.90,15.60,40.30,17.20")
+  .then(res => res.json())
+  .then(dati => {
+    dati.markers.forEach(staz => {
+      const lat = parseFloat(staz.lat);
+      const lon = parseFloat(staz.lng);
+      const tempVal = parseFloat(staz.temp);
+      const colore = getColor(tempVal);
+      const textColor = getTextColorForBackground(colore);
+      const icona = L.divIcon({
+        className: "temperature-label",
+        html: `<span style="color:${textColor}">${tempVal}°</span>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+      const marker = L.marker([lat, lon], { icon: icona }).addTo(map);
+      marker.getElement().style.backgroundColor = colore;
+      const condizione = calcolaCondizioneTermica(tempVal);
+      const popup = `<b>${staz.name}</b><br>Temp: ${tempVal}°C<br>Quota: ${staz.alt} m<br>${condizione}<br><i>Dati da ilmeteo.it</i>`;
+      marker.bindPopup(popup);
+      datiTabella.push({ nome: staz.name, temp: tempVal, fonte: "ilmeteo.it" });
+    });
+    aggiornaTabella();
+  });
+
+function aggiornaTabella() {
+  datiTabella.sort((a, b) => b.temp - a.temp);
+  let html = "<h3>Stazioni Meteo</h3>";
+  datiTabella.forEach(s => {
+    html += `<div>${s.nome} → ${s.temp}°C <small>(${s.fonte})</small></div>`;
+  });
+  document.getElementById("tabella").innerHTML = html;
+}
+
+</script>
+
+</body>
+</html>
