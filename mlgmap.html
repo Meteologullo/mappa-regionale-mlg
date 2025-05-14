@@ -7,6 +7,76 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
 <link href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" rel="stylesheet"/>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDasXnVu7uIEjpwtQ-XbVilREGmAZSBjVE",
+    authDomain: "meteo-estremami.firebaseapp.com",
+    projectId: "meteo-estremami",
+    storageBucket: "meteo-estremami.firebasestorage.app",
+    messagingSenderId: "469441159034",
+    appId: "1:469441159034:web:b687adef4a7a742499c0c3"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.getExtremesFromFirebase = async function (stationId) {
+    const q = query(collection(db, "osservazioni"), where("stationId", "==", stationId));
+    const snapshot = await getDocs(q);
+    let min = Infinity, max = -Infinity;
+    snapshot.forEach(doc => {
+      const temp = doc.data().temperatura;
+      if (typeof temp === 'number') {
+        if (temp < min) min = temp;
+        if (temp > max) max = temp;
+      }
+    });
+    return {
+      min: min === Infinity ? null : min,
+      max: max === -Infinity ? null : max
+    };
+  };
+
+function visualizzaPioggia() {
+  datiTabella.forEach((d) => {
+    const marker = markersById[d.stationId];
+    if (typeof d.pioggia !== 'undefined' && marker) {
+      const el = marker.getElement();
+      if (el) {
+        const colore = d.pioggia > 5 ? "#003366" : "#3399ff"; // Colore in base alla quantità
+        el.innerHTML = `<span style='color:white;'>${d.pioggia.toFixed(1)} mm</span>`;
+        el.style.backgroundColor = colore;
+        el.style.width = '48px';
+        el.style.height = '48px';
+      }
+    }
+  });
+}
+
+
+async function caricaDatiOpenMeteo() {
+  for (const stazione of stazioni.filter(s => s.openMeteo)) {
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,precipitation`);
+      const data = await res.json();
+      datiTabella.push({
+        stationId: stazione.stationId,
+        temp: data.current.temperature_2m,
+        tempVal: data.current.temperature_2m,
+        pioggia: data.current.precipitation
+      });
+    } catch (e) {
+      console.error("Errore nel fetch OpenMeteo per", stazione.stationId, e);
+    }
+  }
+}
+
+</script>
+
 <script>
 window.extremiGiornalieri = {
   "ICOSEN11": { min: 10.2, max: 28.5 },
@@ -1631,6 +1701,20 @@ html, body {
 </style>
 </head>
 <body>
+
+<div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
+  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+    <button onclick="playRadar()" title="Avvia animazione">▶️</button>
+    <button onclick="stopRadar()" title="Ferma animazione">⏹️</button>
+    <input type="range" id="radarSlider" min="0" max="0" step="1" value="0" oninput="sliderChangeRadar(this.value)" style="width: 140px;">
+  </div>
+  <div id="radar-time-label" style="font-size: 13px; color: #111; text-align: center;"></div>
+</div>
+
+
+<div id="radar-time-label" style="font-size: 13px; color: #111; text-align: center;"></div>
+</div>
+
 <!-- Sidebar Meteo -->
 <div id="sidebar">
 <button class="sidebar-btn" onclick="visualizzaAttuali()" style="background-color: #cccccc; color: black;" title="Temp attuale">T°C</button>
@@ -1640,12 +1724,23 @@ html, body {
 <button class="sidebar-btn" onclick="visualizzaRaffiche()" style="background-color: #ff9933; color: white;" title="Raffiche">RAF</button>
 <button class="sidebar-btn" onclick="visualizzaPioggia()" style="background-color: #3399ff; color: white;" title="Pioggia">MM</button>
 <button class="sidebar-btn" onclick="filtraSoloMLG()" style="background-color: #222; color: white;" title="Solo MLG">MLG</button>
+<button class="sidebar-btn" onclick="toggleRadar()" style="background-color: #444; color: white;" title="Radar/Satellite">RAD</button>
 </div>
 <!-- Striscia con la scritta Meteo Lo Gullo -->
 <div id="banner">
   - Meteo Lo Gullo
 </div>
+<div id="radar-controls-container">
+<div id="radar-time-label" style="margin-top: 4px; font-size: 12px; color: #333; text-align: center;"></div>
+</div>
+</div>
 <div id="map" style="">
+</div>
+  <button onclick="playRadar()" style="margin-right: 5px;">▶️</button>
+  <button onclick="stopRadar()" style="margin-right: 5px;">⏹️</button>
+  <input type="range" id="radarSlider" min="0" max="0" step="1" value="0" oninput="sliderChangeRadar(this.value)">
+</div>
+
 <div id="mlg-label" style="
   position: fixed;
   top: 65px;
@@ -1875,12 +1970,12 @@ function calcolaCondizioneTermica(temp, umidita) {
 }
 
 const stazioni = [
-  { nome: "Cosenza - Vaglio Lise", mlg: true, lat: 39.32, lon: 16.26, quota: "208 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN11", apiKey: "03d402e1e8844ac49402e1e8844ac419", webcam: "", linkStazione: "https://esempio.it/stazioni/cosenza-vaglio" },
-  { nome: "Amantea Spiaggia", mlg: true, lat: 39.13, lon: 16.07, quota: "0 m", provincia: "CS", regione: "Calabria", area: "Costa Tirrenica Cosentina", stationId: "IAMANT6", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "https://meteologullo.github.io/immagine_provvisoria_amantea.jpg", linkStazione: "https://esempio.it/stazioni/amantea-spiaggia" },
-  { nome: "Montescuro - Celico", mlg: true, lat: 39.33, lon: 16.4, quota: "1643 m", provincia: "CS", regione: "Calabria", area: "Vetta della Sila Grande", stationId: "ICELIC1", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://esempio.it/stazioni/montescuro-celico" },
-  { nome: "Cosenza - Campagnano", mlg: true, lat: 39.31, lon: 16.23, quota: "234 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN20", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://esempio.it/stazioni/campagnano" },
-  { nome: "Mendicino - Tivolille Pasquali", mlg: true, lat: 39.28, lon: 16.2, quota: "431 m", provincia: "CS", regione: "Calabria", area: "Pre-Catena Costiera Interna", stationId: "IMENDI13", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://esempio.it/stazioni/mendicino" },
-  { nome: "Casali del Manco - Morelli Soprana", mlg: true, lat: 39.28, lon: 16.29, quota: "389 m", provincia: "CS", regione: "Calabria", area: "collina Valle del Crati", stationId: "ICASAL40", apiKey: "b368cd08174d424fa8cd08174d424f20", webcam: "", linkStazione: "https://esempio.it/stazioni/morelli-soprana" },
+  { nome: "Cosenza - Vaglio Lise", mlg: true, lat: 39.32, lon: 16.26, quota: "208 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN11", apiKey: "03d402e1e8844ac49402e1e8844ac419", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-cosenza-vaglio-lise" },
+  { nome: "Amantea Spiaggia", mlg: true, lat: 39.13, lon: 16.07, quota: "0 m", provincia: "CS", regione: "Calabria", area: "Costa Tirrenica Cosentina", stationId: "IAMANT6", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "https://images-webcams.windy.com/75/1350579375/daylight/preview/1350579375.jpg", linkStazione: "https://www.meteologullo.com/stazione-amantea-spiaggia" },
+  { nome: "Monte Scuro - Celico", mlg: true, lat: 39.33, lon: 16.4, quota: "1643 m", provincia: "CS", regione: "Calabria", area: "Vetta della Sila Grande", stationId: "ICELIC3", apiKey: "2d12def7f4894eca92def7f4892eca99", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-meteo-di-monte-scuro-celico" },
+  { nome: "Cosenza - Campagnano", mlg: true, lat: 39.31, lon: 16.23, quota: "234 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN20", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-cosenza-campagnano" },
+  { nome: "Mendicino - Tivolille Pasquali", mlg: true, lat: 39.28, lon: 16.2, quota: "431 m", provincia: "CS", regione: "Calabria", area: "Pre-Catena Costiera Interna", stationId: "IMENDI13", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-mendicino-tivolille" },
+  { nome: "Casali del Manco - Morelli Soprana", mlg: true, lat: 39.28, lon: 16.29, quota: "389 m", provincia: "CS", regione: "Calabria", area: "collina Valle del Crati", stationId: "ICASAL40", apiKey: "b368cd08174d424fa8cd08174d424f20", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-casali-del-manco-morelli-soprana" },
   { nome: "Nuova Stazione 1", mlg: true, lat: 39.40, lon: 16.50, quota: "100 m", provincia: "CS", regione: "Calabria", area: "Nuova Area", stationId: "INUST1", apiKey: "123456789", webcam: "", linkStazione: "https://esempio.it/stazioni/nuova-stazione-1" },
   { nome: "Catanzaro Centro", lat: 38.91, lon: 16.59, quota: "320 m", provincia: "CZ", regione: "Calabria", area: "Centro città", openMeteo: true, stationId: "CATCENTRO", webcam: "", linkStazione: "#" }
 ,
@@ -1900,7 +1995,7 @@ const stazioni = [
   { nome: "Petilia Policastro", lat: 39.13, lon: 16.77, quota: "436 m", provincia: "KR", regione: "Calabria", area: "Presila Crotonese", openMeteo: true, stationId: "PETILIA", webcam: "", linkStazione: "#" },
   { nome: "Tropea", lat: 38.68, lon: 15.9, quota: "61 m", provincia: "VV", regione: "Calabria", area: "Costa degli Dei", openMeteo: true, stationId: "TROPEA", webcam: "", linkStazione: "#" },
   { nome: "Gerace", lat: 38.27, lon: 16.23, quota: "500 m", provincia: "RC", regione: "Calabria", area: "Collina Ionica Reggina", openMeteo: true, stationId: "GERACE", webcam: "", linkStazione: "#" },
-  { nome: "Spezzano della Sila", lat: 39.33, lon: 16.38, quota: "800 m", provincia: "CS", regione: "Calabria", area: "Sila Grande", openMeteo: true, stationId: "SPEZSILA", webcam: "", linkStazione: "#" },
+  { nome: "Spezzano della Sila", lat: 39.30, lon: 16.33, quota: "800 m", provincia: "CS", regione: "Calabria", area: "Sila Grande", openMeteo: true, stationId: "SPEZSILA", webcam: "", linkStazione: "#" },
   { nome: "Paola", lat: 39.37, lon: 16.03, quota: "154 m", provincia: "CS", regione: "Calabria", area: "Tirreno Cosentino", openMeteo: true, stationId: "PAOLA", webcam: "", linkStazione: "#" },
   { nome: "Belvedere Marittimo", lat: 39.61, lon: 15.86, quota: "150 m", provincia: "CS", regione: "Calabria", area: "Alto Tirreno Cosentino", openMeteo: true, stationId: "BELVEDERE", webcam: "", linkStazione: "#" },
   { nome: "Mormanno", lat: 39.92, lon: 15.97, quota: "850 m", provincia: "CS", regione: "Calabria", area: "Pollino", openMeteo: true, stationId: "MORMANNO", webcam: "", linkStazione: "#" },
@@ -3171,5 +3266,381 @@ setTimeout(() => {
     if (tentativi >= 10) clearInterval(retry);
   }, 1000);
 }, 4000);
-</script></body>
+</script>
+<script>
+function aggiornaPopupConEstremiFinale() {
+  if (!window.extremiGiornalieri || !window.markersById || !window.datiTabella) return;
+
+  datiTabella.forEach(staz => {
+    const marker = markersById[staz.stationId];
+    if (!marker) return;
+
+    const temp = staz.temp ?? "--";
+    const um = staz.umidita ?? "-";
+    const condizione = staz.condizione ?? "-";
+    const vento = staz.vento ?? "-";
+    const raffica = staz.raffica ?? "-";
+    const pioggia = staz.pioggia ?? 0;
+    const orario = staz.orario ?? "-";
+    const webcam = staz.webcam ?? "";
+    const linkStazione = staz.linkStazione ?? "#";
+
+    const estremi = window.extremiGiornalieri[staz.stationId] || {};
+    const tMin = estremi.min != null ? estremi.min + "°C" : "--";
+    const tMax = estremi.max != null ? estremi.max + "°C" : "--";
+
+    const popup = `
+      <div class="popup-title">${staz.nome}</div>
+      <div class="popup-sub">${[staz.provincia, staz.regione, staz.quota ? `${staz.quota} m` : null, staz.area].filter(v => v && v !== "undefined").join(" • ")}</div>
+      <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
+      <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
+      <div class="popup-data"><span class="bold">Cond. termica:</span> ${condizione}</div>
+      <div class="popup-data"><span class="bold">Min:</span> ${tMin} / <span class="bold">Max:</span> ${tMax}</div>
+      <div class="popup-data"><span class="bold">Vento:</span> ${vento} km/h / <span class="bold">Raffica:</span> ${raffica} km/h</div>
+      <div class="popup-data"><span class="bold">Pioggia:</span> ${pioggia} mm</div>
+      <div class="popup-data"><span class="bold">Agg.:</span> ${orario} <span style='color:#c00;font-size:11px;margin-left:6px;'>Staz. MLG</span></div>
+      <button class="btn" onclick="apriGrafico('${staz.stationId}')">Grafico temperatura</button>
+      <a class="btn" href="${linkStazione}" target="_blank">Pagina della stazione</a>
+      ${webcam ? `<img src="${webcam}" class="webcam-preview">` : '<div class="webcam-missing">Webcam non disponibile</div>'}
+    `;
+
+    marker.bindPopup(popup);
+  });
+}
+
+setTimeout(() => {
+  aggiornaPopupConEstremiFinale();
+}, 4000);
+</script>
+
+
+<script>
+let radarLayer = null;
+let radarAttivo = false;
+
+async ${path}/256/{z}/{x}/{y}/2/1_1.png`;
+
+      radarLayer = L.tileLayer(tileUrl, {
+        attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>',
+        opacity: 0.6,
+        zIndex: 1000
+      });
+    } catch (error) {
+      console.error('Errore nel caricamento del layer radar:', error);
+      return;
+    }
+  }
+
+  if (!radarAttivo) {
+    radarLayer.addTo(map);
+  } else {
+    map.removeLayer(radarLayer);
+  }
+  radarAttivo = !radarAttivo;
+}
+</script>
+
+
+<script>
+let radarLayers = [];
+let radarTimes = [];
+let radarIndex = 0;
+let radarAnimationInterval = null;
+let radarPlaying = false;
+
+async ${path}/256/{z}/{x}/{y}/2/1_1.png`, {
+          opacity: 0.6,
+          zIndex: 1000,
+          attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
+        })
+      );
+    } catch (error) {
+      console.error('Errore nel caricamento dei frame radar:', error);
+      return;
+    }
+  }
+
+  if (!radarPlaying) {
+    radarPlaying = true;
+    radarIndex = 0;
+    radarLayers[radarIndex].addTo(map);
+    radarAnimationInterval = setInterval(() => {
+      map.removeLayer(radarLayers[radarIndex]);
+      radarIndex = (radarIndex + 1) % radarLayers.length;
+      radarLayers[radarIndex].addTo(map);
+    }, 700);
+  } else {
+    clearInterval(radarAnimationInterval);
+    radarLayers.forEach(layer => map.removeLayer(layer));
+    radarPlaying = false;
+  }
+}
+</script>
+
+
+<script>
+let radarLayers = [];
+let radarTimes = [];
+let radarIndex = 0;
+let radarAnimationInterval = null;
+let radarPlaying = false;
+
+async ${path}/256/{z}/{x}/{y}/2/1_1.png`, {
+          opacity: 0.6,
+          zIndex: 1000,
+          attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
+        })
+      );
+      document.getElementById("radarSlider").max = radarLayers.length - 1;
+    } catch (error) {
+      console.error('Errore nel caricamento dei frame radar:', error);
+      return;
+    }
+  }
+
+  if (!radarPlaying && controls.style.display === "none") {
+    controls.style.display = "block";
+    radarIndex = 0;
+    radarLayers[radarIndex].addTo(map);
+    document.getElementById("radarSlider").value = radarIndex;
+  } else {
+    stopRadar();
+    controls.style.display = "none";
+  }
+}
+
+function playRadar() {
+  if (radarAnimationInterval) return;
+  radarAnimationInterval = setInterval(() => {
+    radarLayers[radarIndex].remove();
+    radarIndex = (radarIndex + 1) % radarLayers.length;
+    radarLayers[radarIndex].addTo(map);
+    document.getElementById("radarSlider").value = radarIndex;
+  }, 700);
+  radarPlaying = true;
+}
+
+function stopRadar() {
+  if (radarAnimationInterval) {
+    clearInterval(radarAnimationInterval);
+    radarAnimationInterval = null;
+  }
+  radarLayers.forEach(layer => map.removeLayer(layer));
+  radarPlaying = false;
+}
+
+function sliderChangeRadar(value) {
+  if (radarPlaying) {
+    stopRadar();
+  }
+  radarLayers.forEach(layer => map.removeLayer(layer));
+  radarIndex = parseInt(value);
+  radarLayers[radarIndex].addTo(map);
+}
+</script>
+
+
+<script>
+let radarLayers = [];
+let radarTimes = [];
+let radarIndex = 0;
+let radarAnimationInterval = null;
+let radarPlaying = false;
+
+async )
+      }));
+      radarLayers = radarTimes.map(f =>
+        L.tileLayer(`${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+          opacity: 0.6,
+          zIndex: 1000,
+          attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
+        })
+      );
+      document.getElementById("radarSlider").max = radarLayers.length - 1;
+    } catch (error) {
+      console.error('Errore nel caricamento dei frame radar:', error);
+      return;
+    }
+  }
+
+  if (!radarPlaying && controls.style.display === "none") {
+    controls.style.display = "block";
+    radarIndex = 0;
+    radarLayers[radarIndex].addTo(map);
+    updateRadarTimeLabel(radarIndex);
+    document.getElementById("radarSlider").value = radarIndex;
+  } else {
+    stopRadar();
+    controls.style.display = "none";
+  }
+}
+
+function playRadar() {
+  if (radarAnimationInterval) return;
+  radarAnimationInterval = setInterval(() => {
+    radarLayers[radarIndex].remove();
+    radarIndex = (radarIndex + 1) % radarLayers.length;
+    radarLayers[radarIndex].addTo(map);
+    document.getElementById("radarSlider").value = radarIndex;
+    updateRadarTimeLabel(radarIndex);
+  }, 700);
+  radarPlaying = true;
+}
+
+function stopRadar() {
+  if (radarAnimationInterval) {
+    clearInterval(radarAnimationInterval);
+    radarAnimationInterval = null;
+  }
+  radarLayers.forEach(layer => map.removeLayer(layer));
+  radarPlaying = false;
+}
+
+function sliderChangeRadar(value) {
+  if (radarPlaying) {
+    stopRadar();
+  }
+  radarLayers.forEach(layer => map.removeLayer(layer));
+  radarIndex = parseInt(value);
+  radarLayers[radarIndex].addTo(map);
+  updateRadarTimeLabel(radarIndex);
+}
+
+function updateRadarTimeLabel(index) {
+  const label = document.getElementById("radar-time-label");
+  if (label && radarTimes[index]) {
+    label.textContent = `Orario radar: ${radarTimes[index].time}`;
+  }
+}
+</script>
+
+
+<script>
+let radarLayer = null;
+let radarTimes = [];
+let radarLayers = [];
+let radarIndex = 0;
+let radarTimer = null;
+
+async function toggleRadar() {
+  const radarControls = document.getElementById("radar-controls");
+
+  if (!radarLayer) {
+    try {
+      const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+      const data = await res.json();
+      const host = data.host;
+
+      radarTimes = data.radar.past.map(f => ({
+        path: f.path,
+        time: new Date(f.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }));
+
+      radarLayers = radarTimes.map(f =>
+        L.tileLayer(`${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+          opacity: 0.6,
+          zIndex: 1000,
+          attribution: '&copy; <a href="https://www.rainviewer.com">RainViewer</a>'
+        })
+      );
+
+      document.getElementById("radarSlider").max = radarLayers.length - 1;
+
+    } catch (error) {
+      console.error("Errore nel caricamento del radar:", error);
+      return;
+    }
+  }
+
+  radarControls.style.display = radarControls.style.display === "none" ? "block" : "none";
+
+  if (radarControls.style.display === "block") {
+    if (radarLayers[radarIndex]) radarLayers[radarIndex].addTo(map);
+    sliderChangeRadar(radarIndex);
+  } else {
+    if (radarLayers[radarIndex]) radarLayers[radarIndex].remove();
+    stopRadar();
+  }
+}
+
+function sliderChangeRadar(index) {
+  radarIndex = parseInt(index);
+  radarLayers.forEach(layer => layer.remove());
+  radarLayers[radarIndex].addTo(map);
+  document.getElementById("radar-time-label").textContent = radarTimes[radarIndex].time;
+}
+
+function playRadar() {
+  stopRadar();
+  radarTimer = setInterval(() => {
+    radarIndex = (radarIndex + 1) % radarLayers.length;
+    document.getElementById("radarSlider").value = radarIndex;
+    sliderChangeRadar(radarIndex);
+  }, 800);
+}
+
+function stopRadar() {
+  if (radarTimer) clearInterval(radarTimer);
+  radarTimer = null;
+}
+</script>
+
+</body>
 </html>
+
+
+<script>
+function aggiornaPopupConEstremi(marker, stazione) {
+  marker.on('click', async () => {
+    const stationId = stazione.stationId;
+    const popup = L.popup().setLatLng([stazione.lat, stazione.lon]);
+    let contenuto = `<div class='popup-title'>${stazione.nome}</div>`;
+
+    try {
+      const q = firebase.firestore().collection("osservazioni").where("stationId", "==", stationId);
+      const snapshot = await q.get();
+      let min = Infinity, max = -Infinity;
+      let count = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        const temp = data.temperatura;
+        if (typeof temp === 'number') {
+          if (temp < min) min = temp;
+          if (temp > max) max = temp;
+          count++;
+        }
+      });
+
+      contenuto += `<div class='popup-sub'>Estremi giornalieri</div>`;
+      contenuto += `<div class='popup-data'>Min: <span class='bold'>${min !== Infinity ? min.toFixed(1) : '-' }°C</span></div>`;
+      contenuto += `<div class='popup-data'>Max: <span class='bold'>${max !== -Infinity ? max.toFixed(1) : '-' }°C</span></div>`;
+      contenuto += `<div class='popup-data'><em>Debug: ${count} valori trovati</em></div>`;
+    } catch (e) {
+      contenuto += `<div class='popup-data'>Errore: ${e.message}</div>`;
+    }
+
+    popup.setContent(contenuto);
+    popup.openOn(mymap);
+  });
+}
+</script>
+(marker, stazione) {
+  marker.on('click', async () => {
+    const stationId = stazione.stationId;
+    const popup = L.popup().setLatLng([stazione.lat, stazione.lon]);
+    let contenuto = `<div class='popup-title'>${stazione.nome}</div>`;
+
+    try {
+      const { min, max } = await getExtremesFromFirebase(stationId);
+      contenuto += `<div class='popup-sub'>Estremi giornalieri</div>`;
+      contenuto += `<div class='popup-data'>Min: <span class='bold'>${min !== null ? min.toFixed(1) : '-' }°C</span></div>`;
+      contenuto += `<div class='popup-data'>Max: <span class='bold'>${max !== null ? max.toFixed(1) : '-' }°C</span></div>`;
+    } catch (e) {
+      contenuto += `<div class='popup-data'>Errore nel recupero estremi</div>`;
+    }
+
+    popup.setContent(contenuto);
+    popup.openOn(mymap);
+  });
+}
+</script>
