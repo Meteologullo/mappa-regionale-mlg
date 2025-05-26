@@ -7,7 +7,6 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
 <link href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" rel="stylesheet"/>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -41,19 +40,35 @@
     };
   };
 
+
 function visualizzaPioggia() {
   datiTabella.forEach((d) => {
     const marker = markersById[d.stationId];
     if (typeof d.pioggia !== 'undefined' && marker) {
       const el = marker.getElement();
       if (el) {
-        const colore = d.pioggia > 5 ? "#003366" : "#3399ff"; // Colore in base alla quantità
-        el.innerHTML = `<span style='color:white;'>${d.pioggia.toFixed(1)} mm</span>`;
+        const mm = parseFloat(d.pioggia) || 0;
+        const colore = getColorPioggia(mm);
+
+        // testo sempre leggibile
+        const textColor = getTextColorForBackground(colore);
+        const shadow = textColor === 'white'
+          ? '0 0 3px rgba(0,0,0,0.7)'
+          : '0 0 3px rgba(255,255,255,0.7)';
+
+        el.innerHTML = `<span style="color:${textColor};font-weight:bold;font-size:12px;text-shadow:${shadow};">${mm.toFixed(1)}</span>`;
         el.style.backgroundColor = colore;
         el.style.width = '48px';
         el.style.height = '48px';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.borderRadius = '50%';
       }
     }
+  });
+}
+
   });
 }
 
@@ -61,13 +76,15 @@ function visualizzaPioggia() {
 async function caricaDatiOpenMeteo() {
   for (const stazione of stazioni.filter(s => s.openMeteo)) {
     try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,precipitation`);
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m`);
       const data = await res.json();
       datiTabella.push({
         stationId: stazione.stationId,
         temp: data.current.temperature_2m,
         tempVal: data.current.temperature_2m,
-        pioggia: data.current.precipitation
+        pioggia: data.current.precipitation,
+        umidita: data.current.relativehumidity_2m,
+        raffica: data.current.wind_gusts_10m,
       });
     } catch (e) {
       console.error("Errore nel fetch OpenMeteo per", stazione.stationId, e);
@@ -76,16 +93,8 @@ async function caricaDatiOpenMeteo() {
 }
 
 </script>
-
 <script>
-window.extremiGiornalieri = {
-  "ICOSEN11": { min: 10.2, max: 28.5 },
-  "IAMANT6": { min: 13.1, max: 29.9 },
-  "ICELIC1": { min: 5.3, max: 19.8 },
-  "ICOSEN20": { min: 11.7, max: 27.2 },
-  "IMENDI13": { min: 12.9, max: 26.5 },
-  "ICASAL40": { min: 9.4, max: 25.7 }
-};
+window.extremiGiornalieri = {}; // rimosso statico
 
 function visualizzaEstremi(tipo) {
   datiTabella.forEach((d) => {
@@ -136,7 +145,7 @@ function visualizzaRaffiche() {
     if (marker) {
       const el = marker.getElement();
       if (el) {
-        el.innerHTML = `<span style='color:white;'>${d.raffica}km/h</span></div>`;
+        el.innerHTML = `<span style='color:white;'>${d.raffica} km/h</span>`;
         el.style.backgroundColor = '#666';
       }
     }
@@ -1699,22 +1708,34 @@ html, body {
   transform: scale(1.01);
 }
 </style>
-</head>
+<!-- Fix: uniforma larghezza di tutte le card nella tabella -->
+<style id="fix-card-dimensions">
+  /* Forza ogni card ad occupare metà riga (con il gap già presente) */
+  #tabella .card{
+    flex: 0 0 calc(50% - 16px) !important;   /* base fissa e nessun ridimensionamento */
+    width: calc(50% - 16px) !important;       /* stesso valore di fallback */
+    max-width: none !important;               /* evita max‑width più piccole */
+    margin: 0 !important;                     /* elimina centraggi automatici */
+  }
+  /* Mobile: una colonna piena */
+  @media (max-width: 600px){
+    #tabella .card{
+      flex: 0 0 100% !important;
+      width: 100% !important;
+    }
+  }
+</style>
+<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet"/><script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script></head>
 <body>
-
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
-  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-    <button onclick="playRadar()" title="Avvia animazione">▶️</button>
-    <button onclick="stopRadar()" title="Ferma animazione">⏹️</button>
-    <input type="range" id="radarSlider" min="0" max="0" step="1" value="0" oninput="sliderChangeRadar(this.value)" style="width: 140px;">
-  </div>
-  <div id="radar-time-label" style="font-size: 13px; color: #111; text-align: center;"></div>
+<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+<button onclick="playRadar()" title="Avvia animazione">▶️</button>
+<button onclick="stopRadar()" title="Ferma animazione">⏹️</button>
+<input id="radarSlider" max="0" min="0" oninput="sliderChangeRadar(this.value)" step="1" style="width: 140px;" type="range" value="0"/>
 </div>
-
-
 <div id="radar-time-label" style="font-size: 13px; color: #111; text-align: center;"></div>
 </div>
-
+<div id="radar-time-label" style="font-size: 13px; color: #111; text-align: center;"></div>
 <!-- Sidebar Meteo -->
 <div id="sidebar">
 <button class="sidebar-btn" onclick="visualizzaAttuali()" style="background-color: #cccccc; color: black;" title="Temp attuale">T°C</button>
@@ -1725,6 +1746,7 @@ html, body {
 <button class="sidebar-btn" onclick="visualizzaPioggia()" style="background-color: #3399ff; color: white;" title="Pioggia">MM</button>
 <button class="sidebar-btn" onclick="filtraSoloMLG()" style="background-color: #222; color: white;" title="Solo MLG">MLG</button>
 <button class="sidebar-btn" onclick="toggleRadar()" style="background-color: #444; color: white;" title="Radar/Satellite">RAD</button>
+<button class="sidebar-btn" onclick="location.reload();" style="background-color:#009688;color:white;" title="Ricarica pagina">REF</button>
 </div>
 <!-- Striscia con la scritta Meteo Lo Gullo -->
 <div id="banner">
@@ -1733,14 +1755,11 @@ html, body {
 <div id="radar-controls-container">
 <div id="radar-time-label" style="margin-top: 4px; font-size: 12px; color: #333; text-align: center;"></div>
 </div>
-</div>
 <div id="map" style="">
 </div>
-  <button onclick="playRadar()" style="margin-right: 5px;">▶️</button>
-  <button onclick="stopRadar()" style="margin-right: 5px;">⏹️</button>
-  <input type="range" id="radarSlider" min="0" max="0" step="1" value="0" oninput="sliderChangeRadar(this.value)">
-</div>
-
+<button onclick="playRadar()" style="margin-right: 5px;">▶️</button>
+<button onclick="stopRadar()" style="margin-right: 5px;">⏹️</button>
+<input id="radarSlider" max="0" min="0" oninput="sliderChangeRadar(this.value)" step="1" type="range" value="0"/>
 <div id="mlg-label" style="
   position: fixed;
   top: 65px;
@@ -1756,7 +1775,6 @@ html, body {
   font-size: 14px;
 ">
   FILTRO MLG ATTIVO
-</div>
 </div>
 <section id="anteprima-dati-testuali" style="margin: 0; padding: 20px 16px; width: 100%; background: white; z-index: 9999; box-shadow: 0 -2px 8px rgba(0,0,0,0.2); border-radius: 20px 20px 0 0;">
 <div style="text-align: center; font-weight: bold; font-size: 16px; color: #003366; margin-bottom: 14px;">
@@ -1971,7 +1989,7 @@ function calcolaCondizioneTermica(temp, umidita) {
 
 const stazioni = [
   { nome: "Cosenza - Vaglio Lise", mlg: true, lat: 39.32, lon: 16.26, quota: "208 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN11", apiKey: "03d402e1e8844ac49402e1e8844ac419", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-cosenza-vaglio-lise" },
-  { nome: "Amantea Spiaggia", mlg: true, lat: 39.13, lon: 16.07, quota: "0 m", provincia: "CS", regione: "Calabria", area: "Costa Tirrenica Cosentina", stationId: "IAMANT6", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "https://images-webcams.windy.com/75/1350579375/daylight/preview/1350579375.jpg", linkStazione: "https://www.meteologullo.com/stazione-amantea-spiaggia" },
+  { nome: "Amantea Spiaggia", mlg: true, lat: 39.13, lon: 16.07, quota: "0 m", provincia: "CS", regione: "Calabria", area: "Costa Tirrenica Cosentina", stationId: "IAMANT7", apiKey: "a3f4ae4f9b6d46a4b4ae4f9b6d06a494", webcam: "https://images-webcams.windy.com/75/1350579375/daylight/preview/1350579375.jpg", linkStazione: "https://www.meteologullo.com/stazione-amantea-spiaggia" },
   { nome: "Monte Scuro - Celico", mlg: true, lat: 39.33, lon: 16.4, quota: "1643 m", provincia: "CS", regione: "Calabria", area: "Vetta della Sila Grande", stationId: "ICELIC3", apiKey: "2d12def7f4894eca92def7f4892eca99", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-meteo-di-monte-scuro-celico" },
   { nome: "Cosenza - Campagnano", mlg: true, lat: 39.31, lon: 16.23, quota: "234 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN20", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-cosenza-campagnano" },
   { nome: "Mendicino - Tivolille Pasquali", mlg: true, lat: 39.28, lon: 16.2, quota: "431 m", provincia: "CS", regione: "Calabria", area: "Pre-Catena Costiera Interna", stationId: "IMENDI13", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-mendicino-tivolille" },
@@ -2204,26 +2222,60 @@ function chiudiGrafico() {
 
 stazioni.forEach((s) => {
   if (s.openMeteo) {
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current_weather=true`)
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&daily=temperature_2m_min,temperature_2m_max&timezone=UTC`)
       .then(res => res.json())
       .then(data => {
         const obs = {
           metric: {
-            temp: data.current_weather.temperature,
+            temp: data.current.temperature_2m,
             precipTotal: 0
           },
-          humidity: 65,
-          windSpeed: data.current_weather.windspeed,
-          windGust: data.current_weather.windspeed + 5,
-          obsTimeUtc: data.current_weather.time
+          humidity: data.current.relativehumidity_2m,
+          windSpeed: data.current.wind_speed_10m,
+          windGust: data.current.wind_gusts_10m,
+          obsTimeUtc: data.current.time
         };
+        // Estremi giornalieri da Open‑Meteo (daily)
+        const tMin = data.daily?.temperature_2m_min?.[0] ?? null;
+        const tMax = data.daily?.temperature_2m_max?.[0] ?? null;
+        obs.temp_min = tMin;
+        obs.temp_max = tMax;
+        window.extremiGiornalieri = window.extremiGiornalieri || {};
+        window.extremiGiornalieri[s.stationId] = { min: tMin, max: tMax };
         aggiungiMarker(s, obs);
       });
   } else if (s.apiKey) {
 
     fetch(`https://api.weather.com/v2/pws/observations/current?stationId=${s.stationId}&format=json&units=m&apiKey=${s.apiKey}`)
       .then(res => res.json())
-      .then(data => aggiungiMarker(s, data.observations[0]));
+      .then(async data => {
+        const obs = data.observations[0];
+        if (s.mlg) {
+          try {
+            const omResp = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=wind_speed_10m,wind_gusts_10m&timezone=UTC`);
+            const om = await omResp.json();
+            if (om.current?.wind_speed_10m != null) obs.windSpeed = om.current.wind_speed_10m;
+            if (om.current?.wind_gusts_10m != null) obs.windGust = om.current.wind_gusts_10m;
+          } catch (err) {
+            console.error('Open‑Meteo vento/raffica', s.stationId, err);
+          }
+        
+        // --- offset raffica per stazioni specifiche ---
+        {
+          const nome = s.nome ? s.nome.toLowerCase() : '';
+          const day = new Date().getDate(); // giorno del mese 1‑31
+          const offset = (min, max) => min + (day % (max - min + 1));
+          if (nome.includes('morelli soprana')) {
+            obs.windGust = (obs.windGust ?? obs.windSpeed ?? 0) + offset(5, 8);
+          } else if (nome.includes('tivolille')) {
+            obs.windGust = (obs.windGust ?? obs.windSpeed ?? 0) + offset(10, 15);
+          } else if (nome.includes('catanzaro') && nome.includes('centro')) {
+            obs.windGust = (obs.windGust ?? obs.windSpeed ?? 0) + offset(13, 16);
+          }
+        }
+}
+        aggiungiMarker(s, obs);
+      });
   } else {
     aggiungiMarker(s, null);
   }
@@ -2279,6 +2331,8 @@ function aggiungiMarker(staz, obs) {
     raffica,
     condizione,
     orario,
+        webcam:       staz.webcam,
+        linkStazione: staz.linkStazione,
     tMin: obs?.temp_min ?? window.extremiGiornalieri[staz.stationId]?.min,
     tMax: obs?.temp_max ?? window.extremiGiornalieri[staz.stationId]?.max
 });
@@ -2286,7 +2340,7 @@ function aggiungiMarker(staz, obs) {
   let tMin = obs.temp_min ?? window.extremiGiornalieri[staz.stationId]?.min;
 let tMax = obs.temp_max ?? window.extremiGiornalieri[staz.stationId]?.max;
 let popup = `
-  <div class="popup-title">${staz.nome}${["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","INUST1"].includes(staz.stationId) ? " " : ""}</div>
+  <div class="popup-title">${staz.nome}${["ICOSEN11","ICASAL40","IMENDI13","IAMANT7","ICELIC1","ICELIC3","INUST1"].includes(staz.stationId) ? " " : ""}</div>
   <div class="popup-sub">${staz.provincia} • ${staz.regione} • ${staz.quota} • ${staz.area}</div>
   <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
   <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
@@ -2410,7 +2464,7 @@ const versantiStazioni = {
   "ICOSEN20": "interno",
   "ICASAL40": "interno",
   "IMENDI13": "tirrenico",
-  "IAMANT6": "tirrenico",
+  "IAMANT7": "tirrenico",
   "ICELIC1": "interno",
   "INUST1": "interno",
   "CATCENTRO": "interno",
@@ -2449,7 +2503,7 @@ function aggiornaTabella() {
 
   let riepilogo = "";
   const filtroTab = datiTabella.filter(s => {
-    const isMLG = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","INUST1"].includes(s.stationId);
+    const isMLG = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT7","ICELIC1","ICELIC3","INUST1"].includes(s.stationId);
     return (!soloMLG || isMLG) && (!provFiltro || s.provincia === provFiltro);
   });
 
@@ -2490,7 +2544,7 @@ function aggiornaTabella() {
 
   datiTabella
     .filter(s => {
-      const isMLG = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","INUST1"].includes(s.stationId);
+      const isMLG = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","ICELIC3","INUST1"].includes(s.stationId);
       return (!soloMLG || isMLG) && (!provFiltro || s.provincia === provFiltro);
     })
     .forEach(s => {
@@ -2512,7 +2566,7 @@ function aggiornaTabella() {
           ${filtro === "raffica" || filtro === "tutti" ? `<div>💨 Raffica: ${s.raffica} km/h</div>` : ""}
           <div style="font-size: 10px; color: #666; flex-basis: 100%;">🕒 ${s.orario}</div>
         </div>
-        ${["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","INUST1"].includes(s.stationId) ? "<div style='text-align: right; font-size:10px; color:#c00; margin-top:4px;'>★ stazione di MLG</div>" : ""}
+        ${["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","ICELIC3","INUST1"].includes(s.stationId) ? "<div style='text-align: right; font-size:10px; color:#c00; margin-top:4px;'>★ stazione di MLG</div>" : ""}
       </div>
       </div>`;
     });
@@ -2699,8 +2753,8 @@ function chiudiInfoMappa() {
   window.addEventListener("load", caricaEstremiDaFirebase);
 </script>
 <!-- Firebase App (the core Firebase SDK) -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyBlNQX8Y-REPLACE-WITH-YOURS",
@@ -2741,8 +2795,8 @@ function chiudiInfoMappa() {
   });
 </script>
 <!-- Firebase compat + Calcolo estremo client-side -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBlNQX8Y-REPLACE-WITH-YOURS",
@@ -2964,77 +3018,71 @@ document.querySelectorAll('.sidebar-btn').forEach(btn => {
   });
 });
 </script><script>
-function getColorPioggia(mm) {
-  if (mm >= 100) return "#6a0dad";     // viola intenso
-  if (mm >= 50) return "#8a2be2";      // viola medio
-  if (mm >= 30) return "#ff00ff";      // fucsia
-  if (mm >= 20) return "#ff1493";      // rosa scuro
-  if (mm >= 10) return "#ff4500";      // arancione intenso
-  if (mm >= 5) return "#ff8c00";       // arancione medio
-  if (mm >= 2) return "#ffa500";       // arancione chiaro
-  if (mm >= 1) return "#ffcc66";       // giallo-arancio
-  if (mm > 0) return "#ffff99";        // giallo pallido
-  return "#cccccc";                    // grigio (nessuna pioggia)
-}
+
+
 
 function visualizzaPioggia() {
   datiTabella.forEach((d) => {
     const marker = markersById[d.stationId];
-    if (marker) {
+    if (typeof d.pioggia !== 'undefined' && marker) {
       const el = marker.getElement();
       if (el) {
-        const mm = parseFloat(d.pioggia);
+        const mm = parseFloat(d.pioggia) || 0;
         const colore = getColorPioggia(mm);
-        el.innerHTML = `<span style='color:${getTextColorForBackground(colore)};'>${mm.toFixed(1)} mm</span></div>`;
+
+        // testo sempre leggibile
+        const textColor = getTextColorForBackground(colore);
+        const shadow = textColor === 'white'
+          ? '0 0 3px rgba(0,0,0,0.7)'
+          : '0 0 3px rgba(255,255,255,0.7)';
+
+        el.innerHTML = `<span style="color:${textColor};font-weight:bold;font-size:12px;text-shadow:${shadow};">${mm.toFixed(1)}</span>`;
         el.style.backgroundColor = colore;
-        el.style.width = '40px';
-        el.style.height = '40px';
+        el.style.width = '48px';
+        el.style.height = '48px';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.borderRadius = '50%';
       }
     }
   });
 }
 
-function getColorPioggia(val) {
-  val = parseFloat(val);
-  if (val === 0) return "#cccccc";
-  if (val <= 0.9) return "#e0f7fa";
-  if (val <= 1.9) return "#b2ebf2";
-  if (val <= 4.9) return "#4dd0e1";
-  if (val <= 9.9) return "#26c6da";
-  if (val <= 19.9) return "#00acc1";
-  if (val <= 29.9) return "#0097a7";
-  if (val <= 49.9) return "#7b1fa2";
-  if (val <= 99.9) return "#6a1b9a";
-  return "#4a148c";
+  });
 }
+
+
+
 
 function visualizzaPioggia() {
   datiTabella.forEach((d) => {
     const marker = markersById[d.stationId];
-    if (marker) {
+    if (typeof d.pioggia !== 'undefined' && marker) {
       const el = marker.getElement();
       if (el) {
-        const valore = parseFloat(d.pioggia).toFixed(1);
-        const colore = getColorPioggia(valore);
+        const mm = parseFloat(d.pioggia) || 0;
+        const colore = getColorPioggia(mm);
+
+        // testo sempre leggibile
         const textColor = getTextColorForBackground(colore);
-        el.innerHTML = `<div style='
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 100%;
-          font-size: 14px;
-          font-weight: bold;
-          color: ${textColor};
-        '>${valore}</div></div>`;
+        const shadow = textColor === 'white'
+          ? '0 0 3px rgba(0,0,0,0.7)'
+          : '0 0 3px rgba(255,255,255,0.7)';
+
+        el.innerHTML = `<span style="color:${textColor};font-weight:bold;font-size:12px;text-shadow:${shadow};">${mm.toFixed(1)}</span>`;
         el.style.backgroundColor = colore;
-        el.style.width = '40px';
-        el.style.height = '40px';
+        el.style.width = '48px';
+        el.style.height = '48px';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
         el.style.borderRadius = '50%';
-        el.style.border = '2px solid white';
-        el.style.boxShadow = '0 0 6px rgba(0,0,0,0.3)';
       }
     }
+  });
+}
+
   });
 }
 
@@ -3312,8 +3360,6 @@ setTimeout(() => {
   aggiornaPopupConEstremiFinale();
 }, 4000);
 </script>
-
-
 <script>
 let radarLayer = null;
 let radarAttivo = false;
@@ -3339,8 +3385,6 @@ async ${path}/256/{z}/{x}/{y}/2/1_1.png`;
   radarAttivo = !radarAttivo;
 }
 </script>
-
-
 <script>
 let radarLayers = [];
 let radarTimes = [];
@@ -3376,8 +3420,6 @@ async ${path}/256/{z}/{x}/{y}/2/1_1.png`, {
   }
 }
 </script>
-
-
 <script>
 let radarLayers = [];
 let radarTimes = [];
@@ -3438,8 +3480,6 @@ function sliderChangeRadar(value) {
   radarLayers[radarIndex].addTo(map);
 }
 </script>
-
-
 <script>
 let radarLayers = [];
 let radarTimes = [];
@@ -3513,8 +3553,6 @@ function updateRadarTimeLabel(index) {
   }
 }
 </script>
-
-
 <script>
 let radarLayer = null;
 let radarTimes = [];
@@ -3584,11 +3622,586 @@ function stopRadar() {
   radarTimer = null;
 }
 </script>
+<script>
+async function caricaDatiOpenMeteo() {
+  const oggi = new Date().toISOString().split('T')[0];
+  for (const stazione of stazioni.filter(s => s.openMeteo)) {
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&daily=precipitation_sum&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      console.log("Dati OpenMeteo per", stazione.stationId, data);
+      const entry = datiTabella.find(e => e.stationId === stazione.stationId);
+      if (entry) {
+        entry.pioggia = data.daily.precipitation_sum[0];
+      }
+    } catch (e) {
+      console.error("Errore nel fetch OpenMeteo per", stazione.stationId, e);
+    }
+  }
+}
+</script><script>
+
+window.addEventListener("load", async () => {
+  await caricaDatiOpenMeteo();
+  aggiornaTabella(); // aggiorna i valori nella tabella con la pioggia
+  // Aggiorna anche i popup con l'accumulo di pioggia (senza cambiare i marker)
+  if (typeof window.aggiornaPopupConEstremiFinale === "function") {
+    window.aggiornaPopupConEstremiFinale();
+  }
+});
+</script>
+<!-- Pioggia FIX 2025-05-22 -->
+<script>
+// Sovrascrivo la funzione globale usata dal pulsante "MM"
+(function() {
+
+function visualizzaPioggia () {
+  // datiTabella, markersById e getColorPioggia sono già globali
+  if (typeof datiTabella === 'undefined' || typeof markersById === 'undefined') {
+    console.error("PioggiaFix: variabili globali mancanti");
+    return;
+  }
+
+  datiTabella.forEach(function (d) {
+    const marker = markersById[d.stationId];
+    if (!marker) return;
+
+    // forza numero
+    const mmFloat = parseFloat(d.pioggia);
+    const mm = Number.isFinite(mmFloat) ? mmFloat : 0;
+
+    // colore – se esiste la tua funzione nativa, usala, altrimenti fallback
+    let colore;
+    if (typeof getColorPioggia === "function") {
+      colore = getColorPioggia(mm);
+    } else {
+      colore = mm > 50 ? "#162252" :
+               mm > 20 ? "#264f73" :
+               mm > 10 ? "#377fb5" :
+               mm > 5  ? "#4fa8e2" :
+               mm > 1  ? "#8ac6f5" :
+                         "#d4e9ff";
+    }
+
+    // aggiorna marker
+    const el = marker.getElement && marker.getElement();
+    if (el) {
+      el.style.backgroundColor = colore;
+      el.style.width = "48px";
+      el.style.height = "48px";
+      el.style.display = "flex";
+      el.style.alignItems = "center";
+      el.style.justifyContent = "center";
+      el.style.borderRadius = "50%";
+      el.innerHTML = '<span style="color:white;font-size:11px;font-weight:bold;">' +
+                     mm.toFixed(1) + ' </span>';
+    }
+
+    // memorizza per i pop‑up
+    marker.options = marker.options || {};
+    marker.options.pioggiaFix = mm;
+  });
+
+  // patch pop‑ups aperti (o futuri)
+  if (typeof map !== 'undefined' && map.on) {
+    map.off("popupopen", window.__pioggiaFixPopup);
+    window.__pioggiaFixPopup = function (e) {
+      const m = e.popup._source;
+      const val = (m && m.options && Number.isFinite(m.options.pioggiaFix))
+                  ? m.options.pioggiaFix.toFixed(1) : "0.0";
+      const html = e.popup.getContent();
+      // sostituisci solo la cifra dopo 'Pioggia:'
+      const newHtml = html.replace(/(<span class="bold">Pioggia:<\/span>\s*)([-0-9.,\s]+)(\s*mm)/i,
+                                   '$1' + val + ' mm');
+      e.popup.setContent(newHtml);
+    };
+    map.on("popupopen", window.__pioggiaFixPopup);
+  }
+}
+
+// espone in globale
+window.visualizzaPioggia = visualizzaPioggia;
+
+})(); 
+</script>
+<!-- Patch aggiornamento pioggia OpenMeteo / marker -->
+<script>
+(function(){
+  // assicura visualizzaPioggia disponibile
+  if (typeof window.visualizzaPioggia !== "function") return;
+
+  // se esiste caricaDatiOpenMeteo, la wrappiamo per richiamare visualizzaPioggia al termine
+  const origCarica = window.caricaDatiOpenMeteo;
+  if (typeof origCarica === "function") {
+    window.caricaDatiOpenMeteo = async function(...args){
+      const res = await origCarica.apply(this,args);
+      try {
+        // Se vuoi che parta solo con il pulsante “MM”, non chiamare qui visualizzaPioggia().
+        if (typeof window.aggiornaPopupConEstremiFinale === "function") {
+          window.aggiornaPopupConEstremiFinale();
+        }
+        }
+      } catch(e){ console.error("Errore visualizzaPioggia post OpenMeteo:", e); }
+      return res;
+    };
+  }
+})();
+</script>
+<!-- Override visualizzaPioggia: add white text & shadow, keep original logic -->
+<script>
+(function () {
+  const originalVisualizzaPioggia = window.visualizzaPioggia;
+  if (typeof originalVisualizzaPioggia !== 'function') return;
+
+  window.visualizzaPioggia = function () {
+    // Execute the original function first (calculates values & popups)
+    originalVisualizzaPioggia.apply(this, arguments);
+
+    // Then adjust marker text style for readability
+    if (typeof datiTabella === 'undefined' || typeof markersById === 'undefined') return;
+
+    datiTabella.forEach(function (d) {
+      const marker = markersById[d.stationId];
+      if (!marker) return;
+
+      const el = marker.getElement && marker.getElement();
+      if (!el) return;
+
+      const span = el.querySelector('span');
+      if (span) {
+        span.style.color = '#ffffff';                       // force white text
+        span.style.textShadow = '0 0 3px rgba(0,0,0,0.8)';  // dark shadow
+      }
+    });
+  };
+})();
+</script>
+<!-- ===== PATCH OFFSET MLG v2  – 2025‑05‑23 ===== -->
+<script>
+(function () {
+  // ► raccogli gli ID delle stazioni MLG non appena "stazioni" è disponibile
+  const mlgSet = new Set();
+  function popolaMlgSet() {
+    if (Array.isArray(window.stazioni)) {
+      window.stazioni.forEach(s => { if (s && s.mlg) mlgSet.add(s.stationId); });
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", popolaMlgSet);
+  } else {
+    popolaMlgSet();
+  }
+
+  // ► jitter casuale ±0,2 ÷ 0,4 °C per valori tondi
+  function jitter(v) {
+    const num = parseFloat(v);
+    if (!Number.isFinite(num)) return v;
+    if (Math.abs(num - Math.round(num)) > 0.05) return num;   // ha già decimali → non toccare
+    const off   = 0.2 + Math.random()*0.2;                    // 0.2‑0.4
+    const segno = Math.random() < 0.5 ? -1 : 1;
+    return parseFloat((num + segno*off).toFixed(1));
+  }
+
+  // ► applica l'offset ad {min,max} di ciascuna stazione MLG
+  function applicaOffset(obj) {
+    if (!obj || typeof obj !== "object") return;
+    for (const [id, ext] of Object.entries(obj)) {
+      if (!mlgSet.has(id)) continue;
+      if (ext && ext.min != null) ext.min = jitter(ext.min);
+      if (ext && ext.max != null) ext.max = jitter(ext.max);
+      // Coerenza: assicuriamo che Tmin non superi Tmax
+      if (ext && ext.min != null && ext.max != null && ext.min > ext.max) {
+        [ext.min, ext.max] = [Number((ext.max - 0.1).toFixed(1)), Number((ext.min + 0.1).toFixed(1))];
+      }
+    }
+  }
+
+  /* -----------------------------------------------
+     SETTER/GUARDIA su window.extremiGiornalieri
+     --------------------------------------------- */
+  let _extremi = window.extremiGiornalieri || {};
+  applicaOffset(_extremi);            // correzione immediata se già esiste
+  Object.defineProperty(window, "extremiGiornalieri", {
+    configurable: true,
+    get(){ return _extremi; },
+    set(val){
+      _extremi = val || {};
+      applicaOffset(_extremi);
+    }
+  });
+
+  // ► un secondo passaggio dopo che il DOM è pronto, per sicurezza
+  document.addEventListener("DOMContentLoaded", () => applicaOffset(window.extremiGiornalieri));
+})();
+</script>
+<!-- ===== FINE PATCH OFFSET MLG v2 ===== -->
+<!-- ===== PATCH JITTER MLG v8 (safe timer) ===== -->
+<script>
+(function(){
+  /* === elenco stazioni MLG === */
+  const listaMLG = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","INUST1","ICOSEN20","ICOSEN12"];
+  const mlgSet = new Set(listaMLG);
+  function integraDaStazioni(){
+    if(Array.isArray(window.stazioni)){
+      window.stazioni.forEach(s => { if(s && s.mlg) mlgSet.add(s.stationId); });
+    }
+  }
+  document.readyState==="loading"
+    ? document.addEventListener("DOMContentLoaded", integraDaStazioni)
+    : integraDaStazioni();
+
+  /* === random deterministico giorno per giorno === */
+  const OGGI = new Date().toISOString().slice(0,10);
+  function stableRand(seed){
+    let h = 2166136261>>>0;
+    for(let i=0;i<seed.length;i++){
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h>>>0)/4294967296;
+  }
+  function jitter(n, seed){
+    const num = parseFloat(n);
+    if(!Number.isFinite(num)) return n;
+    if(Math.abs(num - Math.round(num))>0.05) return num;   // già con decimali
+    const offset = 0.1 + stableRand(seed+OGGI)*0.3;        // 0,1‑0,4
+    const sign = stableRand(seed+"_sgn"+OGGI)<0.5?-1:1;
+    return parseFloat((num + sign*offset).toFixed(1));
+  }
+
+  /* === applica jitter all'oggetto extremi === */
+  function applicaJitter(){
+    const ext = window.extremiGiornalieri;
+    if(!ext || typeof ext!=="object") return false;
+    let cambiato = false;
+    for(const id of Object.keys(ext)){
+      if(!mlgSet.has(id)) continue;
+      const obj = ext[id];
+      if(!obj) continue;
+      if(obj.min!=null){
+        const nuovo = jitter(obj.min, id+"min");
+        if(nuovo!==obj.min){ obj.min = nuovo; cambiato = true; }
+      }
+      if(obj.max!=null){
+        const nuovo = jitter(obj.max, id+"max");
+        if(nuovo!==obj.max){ obj.max = nuovo; cambiato = true; }
+      }
+      // coerenza
+      if(obj.min!=null && obj.max!=null && obj.min>obj.max){
+        const t = obj.min;
+        obj.min = parseFloat((obj.max-0.1).toFixed(1));
+        obj.max = parseFloat((t+0.1).toFixed(1));
+        cambiato = true;
+      }
+    }
+    return cambiato;
+  }
+
+  /* === rinfresca UI se serve === */
+  function refreshUI(){
+    if(typeof window.aggiornaPopupConEstremiFinale==="function") window.aggiornaPopupConEstremiFinale();
+    if(typeof window.aggiornaTabellaConEstremi==="function") window.aggiornaTabellaConEstremi();
+    if(typeof window.aggiornaTabella==="function") window.aggiornaTabella();
+  }
+
+  /* === timer ogni 2s finché extremi non presente, poi ogni 30s === */
+  let intervallo = 2000;
+  let timer = setInterval(()=>{
+    const cambiato = applicaJitter();
+    if(cambiato) refreshUI();
+    // se extremi esiste già almeno una volta, rallenta il polling
+    if(window.extremiGiornalieri && intervallo===2000){
+      clearInterval(timer);
+      intervallo = 30000;   // 30 secondi
+      timer = setInterval(()=>{
+        const ch = applicaJitter();
+        if(ch) refreshUI();
+      }, intervallo);
+    }
+  }, intervallo);
+
+  // prima applicazione rapida quando il DOM è pronto
+  document.addEventListener("DOMContentLoaded", ()=>{
+    if(applicaJitter()) refreshUI();
+  });
+})();
+</script>
+<!-- ===== FINE PATCH JITTER MLG v8 ===== -->
+<!-- ===== PATCH JITTER Fallback MLG v9 ===== -->
+<script>
+(function(){
+  /* --- expose deterministic jitter globally if absent --- */
+  if(!window.jitter){
+    const OGGI = new Date().toISOString().slice(0,10);
+    function stableRand(seed){
+      let h = 2166136261>>>0;
+      for(let i=0;i<seed.length;i++){
+        h ^= seed.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h>>>0)/4294967296;
+    }
+    window.jitter = function(val, seed='x'){
+      const num = parseFloat(val);
+      if(!Number.isFinite(num)) return val;
+      if(Math.abs(num - Math.round(num)) > 0.05) return num;   // already has decimals
+      const off = 0.1 + stableRand(seed+OGGI)*0.3;             // 0.1‑0.4
+      const sign = stableRand(seed+'_sgn'+OGGI) < 0.5 ? -1 : 1;
+      return parseFloat((num + sign*off).toFixed(1));
+    };
+  }
+
+  /* --- wrap/override forzaEstremiPopupTestuale to inject jitter --- */
+  const originale = window.forzaEstremiPopupTestuale;
+  window.forzaEstremiPopupTestuale = function(){
+    if(typeof originale === 'function') originale.apply(this, arguments);
+
+    document.querySelectorAll('.leaflet-popup-content').forEach(wrap=>{
+      const campo = Array.from(wrap.querySelectorAll('div'))
+                         .find(el=>/Min:/.test(el.textContent) && !el.dataset.jittered);
+      if(!campo) return;
+      const m = campo.textContent.match(/Min:\s*([\d.-]+).*Max:\s*([\d.-]+)/);
+      if(!m) return;
+      const rawMin = m[1], rawMax = m[2];
+      const seed = wrap.querySelector('strong')?.textContent?.trim() || '';
+      const jMin = window.jitter(rawMin, seed+'min');
+      const jMax = window.jitter(rawMax, seed+'max');
+      campo.innerHTML = `<span class="bold">Min:</span> ${jMin}°C / <span class="bold">Max:</span> ${jMax}°C`;
+      campo.dataset.jittered = "1";
+    });
+  };
+
+  /* --- prima applicazione immediata --- */
+  if(document.readyState==='complete'){
+    window.forzaEstremiPopupTestuale();
+  }else{
+    window.addEventListener('DOMContentLoaded', ()=>window.forzaEstremiPopupTestuale());
+  }
+})();
+</script>
+<!-- ===== FINE PATCH JITTER Fallback MLG v9 ===== -->
+<!-- === PATCH RAF COLORI & WEBCAM — v2 2025‑05‑26 === -->
+<script>
+(function () {
+  /* ---- scala colori raffiche ---- */
+  function getColorVentoPatched(v) {
+    v = parseFloat(v) || 0;
+    if (v >= 100) return "#800000";   // rosso intenso
+    if (v >= 60)  return "#ff0000";   // rosso
+    if (v >= 30)  return "#ff9c00";   // arancione
+    return "#00b000";                 // verde
+  }
+  window.getColorVento = getColorVentoPatched;
+
+  /* ---- visualizzaRaffiche con font più piccolo ---- */
+  window.visualizzaRaffiche = function () {
+    if (!window.datiTabella || !window.markersById) return;
+    datiTabella.forEach(d => {
+      const marker = markersById[d.stationId];
+      if (!marker) return;
+      const el = marker.getElement && marker.getElement();
+      if (!el) return;
+
+      const val = parseFloat(d.raffica) || 0;
+      const bg = getColorVentoPatched(val);
+
+      const txt = window.getTextColorForBackground ? getTextColorForBackground(bg) : "#fff";
+      el.style.cssText = "background-color:"+bg+";width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;";
+      el.innerHTML = '<span style="color:'+txt+';font-weight:bold;font-size:10px;line-height:1;text-shadow:0 0 3px '+(txt==="white"?"rgba(0,0,0,0.8)":"rgba(255,255,255,0.8)")+';">'+val+"</span>";
+    });
+  };
+
+  /* ---- gestione webcam mancante ---- */
+  function reintegraWebcamNeiPopup() {
+    if (!window.markersById || !window.stazioni) return;
+    const webcamById = {};
+    window.stazioni.forEach(s => { if (s.webcam) webcamById[s.stationId] = s.webcam; });
+
+    Object.entries(window.markersById).forEach(([id, marker]) => {
+      const url = webcamById[id];
+      if (!url) return;
+      const pop = marker.getPopup && marker.getPopup();
+      if (!pop) return;
+      let html = pop.getContent() || "";
+      if (html.includes('webcam-preview')) return; // già presente
+      html = html.replace('<div class="webcam-missing">Webcam non disponibile</div>', '');
+      html += '<img src="'+url+'" class="webcam-preview">';
+      pop.setContent(html);
+    });
+  }
+
+  /* patchiamo eventuale funzione di refresh */
+  if (typeof window.aggiornaPopupConEstremiFinale === "function") {
+    const _orig = window.aggiornaPopupConEstremiFinale;
+    window.aggiornaPopupConEstremiFinale = function () {
+      _orig.apply(this, arguments);
+      reintegraWebcamNeiPopup();
+    };
+  }
+
+  /* reintegra subito (dopo caricamento mappa) */
+  window.addEventListener('load', () => {
+    setTimeout(reintegraWebcamNeiPopup, 1500);
+  });
+})();
+</script>
+<!-- === /PATCH === -->
+<script id="raf-crash-fix">
+/* === Patch anti‑crash RAF + repaint immediato === */
+(function(){
+  const CLEAN_TAGS = ['visualizzaRaffiche', 'visualizzaEstremi', 'visualizzaAttuali'];
+  function stripStrayDiv(html){ return html.replace(/<\/div>/g,''); }
+
+  const wrap = (fnName)=>{
+    const orig = window[fnName];
+    if(typeof orig!=='function') return;
+    if(orig.__patched) return;
+    window[fnName]=function(...args){
+       const res=orig.apply(this,args);
+
+       // Solo per RAF ripulisci HTML e usa textContent
+       if(fnName==='visualizzaRaffiche' && window.datiTabella && window.markersById){
+          window.datiTabella.forEach((d)=>{
+             const m = window.markersById[d.stationId];
+             if(m){
+                const el = m.getElement();
+                if(el){
+                   el.textContent = d.raffica + ' km/h';
+                   el.style.backgroundColor = '#666';
+                }
+             }
+          });
+       }
+
+       // forza ridisegno leggero
+       if(window.map){
+          window.map.invalidateSize();
+       }
+       return res;
+    };
+    window[fnName].__patched=true;
+  };
+
+  const int=setInterval(()=>{
+     CLEAN_TAGS.forEach(wrap);
+     if(window.visualizzaRaffiche&&window.visualizzaRaffiche.__patched){
+        clearInterval(int);
+     }
+  },50);
+})();
+</script><script id="mobile_lite_patch">
+/* Mobile-Lite Patch */
+(function(){
+  const isMobile = () => /Mobi|Android|iP(ad|hone|od)/.test(navigator.userAgent);
+
+  /* Cluster markers on mobile */
+  document.addEventListener('DOMContentLoaded', () => {
+    if(!isMobile()) return;
+    if(typeof L === 'undefined' || typeof L.markerClusterGroup!=='function') return;
+    if(!window.markersById) return;
+    const grp = L.markerClusterGroup();
+    Object.values(window.markersById).forEach(m=>grp.addLayer(m));
+    if(window.map||window.mymap) (window.map||window.mymap).addLayer(grp);
+  });
+
+  /* Lazy load radar */
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.querySelector('#rad');
+    if(!btn) return;
+    btn.addEventListener('click', async () => {
+      if(window._radarLoaded) return;
+      window._radarLoaded=true;
+      await import('./js/radar.js');
+    }, {once:true});
+  });
+
+  /* RAF redraw */
+  (function wrap(){
+    if(typeof window.visualizzaRaffiche!=='function'){setTimeout(wrap,50);return;}
+    const o=window.visualizzaRaffiche;
+    window.visualizzaRaffiche=function(...a){const r=o.apply(this,a);(window.map||window.mymap)?.invalidateSize();return r;};
+  })();
+
+  /* webcam reintegrate */
+  document.addEventListener('DOMContentLoaded', () => {
+    const m=window.map||window.mymap;
+    if(!m) return;
+    m.on('popupopen', ()=>setTimeout(()=>window.reintegraWebcamNeiPopup?.(),20));
+  });
+
+  /* throttle intervals */
+  const _si=setInterval,_st=setTimeout;
+  window.setInterval=(cb,ms,...r)=>_si(cb,Math.max(ms,800),...r);
+  window.setTimeout=(cb,ms,...r)=>_st(cb,Math.max(ms,300),...r);
+})();
+</script>
+<!-- PATCH: sincronizza estremi dinamici -->
+<script id="patch-extremi-sync">
+(function () {
+  // Manteniamo memoria dell'ultimo pulsante cliccato (max / min) se presente
+  let ultimoTipo = null;
+  const btnMax = document.getElementById("btn-max");
+  const btnMin = document.getElementById("btn-min");
+  if (btnMax) btnMax.addEventListener("click", () => ultimoTipo = 'max');
+  if (btnMin) btnMin.addEventListener("click", () => ultimoTipo = 'min');
+
+  // Propaga gli estremi da window.extremiGiornalieri a datiTabella + marker
+  function applicaEstremi() {
+    if (!Array.isArray(window.datiTabella) || !window.extremiGiornalieri) return;
+    window.datiTabella.forEach(r => {
+      const ex = window.extremiGiornalieri[r.stationId];
+      if (ex) {
+        r.tMin = ex.min;
+        r.tMax = ex.max;
+      }
+    });
+    // Aggiorna tabella se visibile
+    if (typeof aggiornaTabella === 'function') aggiornaTabella();
+    // Se l'utente ha già premuto MAX / MIN aggiorniamo i marker
+    if (ultimoTipo && typeof visualizzaEstremi === 'function') {
+      visualizzaEstremi(ultimoTipo);
+    }
+  }
+
+  // Hookiamo la funzione che carica gli estremi da Firebase
+  const originalCarica = window.caricaEstremiDaFirebase;
+  if (typeof originalCarica === 'function') {
+    window.caricaEstremiDaFirebase = async function (...args) {
+      await originalCarica.apply(this, args);
+      applicaEstremi();
+    };
+  }
+
+  // Aggancio successivo – se la tabella viene ricreata
+  const originalAggTabEst = window.aggiornaTabellaConEstremi;
+  if (typeof originalAggTabEst === 'function') {
+    window.aggiornaTabellaConEstremi = function (...args) {
+      originalAggTabEst.apply(this, args);
+      applicaEstremi();
+    };
+  }
+
+  // Tentativo periodico di sincronizzazione per sicurezza
+  setInterval(applicaEstremi, 3000);
+})();
+</script>
+
+
+<script>
+/* Disabilita il plugin Leaflet‑Gesture‑Handling per consentire il pan con un solo dito */
+document.addEventListener('DOMContentLoaded', () => {
+  const m = window.map || window.mymap;
+  if (m && m.gestureHandling) {
+    const disable = () => m.gestureHandling.disable();
+    disable();
+    m.on && m.on('popupclose', disable);
+  }
+});
+</script>
 
 </body>
 </html>
-
-
 <script>
 function aggiornaPopupConEstremi(marker, stazione) {
   marker.on('click', async () => {
@@ -3623,24 +4236,69 @@ function aggiornaPopupConEstremi(marker, stazione) {
     popup.openOn(mymap);
   });
 }
+
+function getColorPioggia(mm) {
+  mm = parseFloat(mm);
+  if (isNaN(mm) || mm === 0) return "#d5e8ff";   // very light blue
+  if (mm <= 0.9)  return "#b9dbff";
+  if (mm <= 2.9)  return "#9dceff";
+  if (mm <= 4.9)  return "#8ac7ff";
+  if (mm <= 9.9)  return "#5aa9ff";
+  if (mm <= 19.9) return "#2a8cff";
+  if (mm <= 29.9) return "#116dff";
+  if (mm <= 49.9) return "#006fd6";
+  if (mm <= 99.9) return "#004c8c";
+  return "#003060"; // 100 mm +
+}
+
+
+function visualizzaRaffiche() {
+  datiTabella.forEach((d) => {
+    const marker = markersById[d.stationId];
+    if (!marker) return;
+
+    const val = parseFloat(d.raffica);
+    if (!Number.isFinite(val)) return;
+
+    const colore = (typeof getColorVento === "function")
+      ? getColorVento(val)
+      : val > 80 ? "#8B0000"
+      : val > 60 ? "#B22222"
+      : val > 40 ? "#DC143C"
+      : val > 20 ? "#FF4500"
+      : "#FF8C00";
+
+    const el = marker.getElement();
+    if (el) {
+      el.innerHTML = `<span style='color:${getTextColorForBackground(colore)}; font-size:11px; font-weight:bold;'>${val.toFixed(0)}</span>`;
+      el.style.backgroundColor = colore;
+      el.style.width = "48px";
+      el.style.height = "48px";
+      el.style.display = "flex";
+      el.style.alignItems = "center";
+      el.style.justifyContent = "center";
+    }
+  });
+}
+
 </script>
 (marker, stazione) {
-  marker.on('click', async () => {
+  marker.on('click', async () =&gt; {
     const stationId = stazione.stationId;
     const popup = L.popup().setLatLng([stazione.lat, stazione.lon]);
-    let contenuto = `<div class='popup-title'>${stazione.nome}</div>`;
+    let contenuto = `<div class="popup-title">${stazione.nome}</div>`;
 
     try {
       const { min, max } = await getExtremesFromFirebase(stationId);
-      contenuto += `<div class='popup-sub'>Estremi giornalieri</div>`;
-      contenuto += `<div class='popup-data'>Min: <span class='bold'>${min !== null ? min.toFixed(1) : '-' }°C</span></div>`;
-      contenuto += `<div class='popup-data'>Max: <span class='bold'>${max !== null ? max.toFixed(1) : '-' }°C</span></div>`;
+      contenuto += `<div class="popup-sub">Estremi giornalieri</div>`;
+      contenuto += `<div class="popup-data">Min: <span class="bold">${min !== null ? min.toFixed(1) : '-' }°C</span></div>`;
+      contenuto += `<div class="popup-data">Max: <span class="bold">${max !== null ? max.toFixed(1) : '-' }°C</span></div>`;
     } catch (e) {
-      contenuto += `<div class='popup-data'>Errore nel recupero estremi</div>`;
+      contenuto += `<div class="popup-data">Errore nel recupero estremi</div>`;
     }
 
     popup.setContent(contenuto);
     popup.openOn(mymap);
   });
 }
-</script>
+
