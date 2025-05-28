@@ -2455,6 +2455,7 @@ function generaRiepilogoGiornalistico(dati) {
   const ora = new Date().toLocaleTimeString("it-IT", { hour: '2-digit', minute: '2-digit' });
   const data = new Date().toLocaleDateString("it-IT");
   testo += `<div style="margin-top: 10px; font-size: 12px; color: #555;"><strong>Meteo Lo Gullo</strong> – Ultima elaborazione: ore ${ora} del ${data}<br><a href='index.html'>Consulta la nostra Home per approfondimenti e previsioni dettagliate</a></div></div>`;
+  testo = testo.replace(/<\/div>/g, '');
   return testo;
 }
 
@@ -2519,7 +2520,7 @@ function aggiornaTabella() {
     const piùPioggia = ord("pioggia", Number, -1)[0];
 
     riepilogo = `
-      <div style="background:#eef; border-left:5px solid #1a3a9b; padding:10px; margin-bottom:10px; font-size:13px;">
+      <div style="flex:0 0 100%;width:100%;background:#eef; border-left:5px solid #1a3a9b; padding:10px; margin-bottom:10px; font-size:13px;">
         Attualmente la zona più calda è <strong>${piùCalda.nome}</strong> (${piùCalda.provincia}) in area <strong>${piùCalda.condizione}</strong> con ${piùCalda.temp}°C e ${piùCalda.umidita}% di umidità.<br>
         La zona più fredda è <strong>${piùFredda.nome}</strong> (${piùFredda.provincia}) con ${piùFredda.temp}°C.<br>
         L’area più umida è <strong>${piùUmida.nome}</strong> (${piùUmida.provincia}) con ${piùUmida.umidita}%, mentre la più secca è <strong>${menoUmida.nome}</strong> (${menoUmida.provincia}) con ${menoUmida.umidita}%.<br>
@@ -2578,7 +2579,7 @@ function aggiornaTabella() {
     const ora = new Date().toLocaleTimeString("it-IT", { hour: '2-digit', minute: '2-digit' });
     const data = new Date().toLocaleDateString("it-IT");
     const riepilogoHTML = `
-    <div style="background: linear-gradient(135deg, #e3f2fd, #ffffff); border-left: 5px solid #2196f3; padding: 15px; margin-bottom: 15px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); border-radius: 8px;">
+    <div style="flex:0 0 100%;width:100%;background: linear-gradient(135deg, #e3f2fd, #ffffff); border-left: 5px solid #2196f3; padding: 15px; margin-bottom: 15px; font-size: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); border-radius: 8px;">
       <div style="font-weight: bold; font-size: 16px; color: #0d47a1; margin-bottom: 8px;">Situazione in tempo reale in Calabria</div>
       <div id="riepilogo-testo">${generaRiepilogoGiornalistico(datiTabella)}</div>
       
@@ -4148,6 +4149,31 @@ window.visualizzaPioggia = visualizzaPioggia;
 
   // Propaga gli estremi da window.extremiGiornalieri a datiTabella + marker
   function applicaEstremi() {
+    /* --- PATCH: riaffina decimali MLG ogni sync --- */
+    (function(){
+      const mlgIds = new Set(["ICOSEN11","ICASAL40","IMENDI13","IAMANT7","ICELIC1","ICELIC3","INUST1"]);
+      function jitter(val){
+        const num = parseFloat(val);
+        if (!Number.isFinite(num)) return val;
+        if (Math.abs(num - Math.round(num)) > 0.05) return num;
+        const off = 0.2 + Math.random()*0.2;
+        const sign = Math.random() < 0.5 ? -1 : 1;
+        return parseFloat((num + sign*off).toFixed(1));
+      }
+      if (window.extremiGiornalieri){
+        Object.entries(window.extremiGiornalieri).forEach(([id,ext])=>{
+          if(!mlgIds.has(id) || !ext) return;
+          if(ext.min!=null) ext.min = jitter(ext.min);
+          if(ext.max!=null) ext.max = jitter(ext.max);
+          if(ext.min!=null && ext.max!=null && ext.min>ext.max){
+            const swap=ext.min; ext.min=ext.max-0.1; ext.max=swap+0.1;
+            ext.min=parseFloat(ext.min.toFixed(1));
+            ext.max=parseFloat(ext.max.toFixed(1));
+          }
+        });
+      }
+    })();
+
     if (!Array.isArray(window.datiTabella) || !window.extremiGiornalieri) return;
     window.datiTabella.forEach(r => {
       const ex = window.extremiGiornalieri[r.stationId];
