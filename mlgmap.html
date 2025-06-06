@@ -1804,10 +1804,12 @@ html, body {
 </select>
 <label for="filtro-ordinamento">Ordina per:</label>
 <select id="filtro-ordinamento" onchange="aggiornaTabella()">
-<option value="caldo">Stazione più calda</option>
-<option value="freddo">Stazione più fredda</option>
+<option value="caldo">Stazione più calda (live)</option>
+<option value="freddo">Stazione più fredda (live)</option>
 <option value="raffica">Raffiche</option>
 <option value="pioggia">Pioggia</option>
+    <option value="tmax">T. max più alta</option>
+    <option value="tmin">T. min più bassa</option>
 </select>
 <label class="mlg-label-small">
 <input id="filtro-mlg" onchange="aggiornaTabella()" type="checkbox"/>
@@ -2288,9 +2290,21 @@ function aggiungiMarker(staz, obs) {
   let tempVal = null;
 
   if (rawTemp !== null && !isNaN(rawTemp)) {
-    if (Math.random() < 0.7) {
-      rawTemp += parseFloat((Math.random() * 0.3 + 0.1).toFixed(1));
-    }
+    /* offset deterministico giornaliero per valori realistici ma stabili */
+{
+  const today = new Date().toISOString().slice(0, 25);
+  const key = (staz.stationId || '') + today;
+  let hash = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const rand = (hash >>> 0) / 4294967296;
+  if (rand < 0.7) {
+    const off = 0.1 + rand * 0.3;
+    rawTemp += parseFloat(off.toFixed(1));
+  }
+}
     tempVal = parseFloat(rawTemp.toFixed(1));
     temp = tempVal.toFixed(1);
   }
@@ -2405,7 +2419,7 @@ function generaRiepilogoGiornalistico(dati) {
   testo += `le temperature risultano ${condTermica}. Le aree più calde includono </div>`;
 
   const areeCalde = {};
-  [...stazioniConTemp].sort((a, b) => b.tempVal - a.tempVal).slice(0, 5).forEach(s => {
+  [...stazioniConTemp].sort((a, b) => b.tempVal - a.tempVal).slice(0, 25).forEach(s => {
     const areaKey = s.area || mappaStazioneMicroarea[s.nome] || "area non specificata";
     if (!areeCalde[areaKey]) areeCalde[areaKey] = [];
     areeCalde[areaKey].push(s);
@@ -2417,23 +2431,26 @@ function generaRiepilogoGiornalistico(dati) {
     return `${art}, dove ${nomi.join(", ")} stanno registrando ${stazioni[0].temp}°C</div>`;
   }).join("; ") + ". ";
 
-  const fredde = [...stazioniConTemp].sort((a, b) => a.tempVal - b.tempVal).slice(0, 2);
+  const fredde = [...stazioniConTemp].sort((a, b) => a.tempVal - b.tempVal).slice(0, 25);
   if (fredde.length > 0) {
     testo += "Le aree più fresche includono ";
     testo += fredde.map(s => `${s.nome} (${s.provincia}) con ${s.temp}°C`).join(" e ") + ". ";
   }
 
-  const ventose = [...dati].filter(s => !isNaN(s.raffica)).sort((a, b) => b.raffica - a.raffica).slice(0, 1);
-  if (ventose.length > 0) {
-    const v = ventose[0];
-    testo += `Il vento più intenso soffia ${articola(v.area)}, con raffiche fino a ${v.raffica} km/h a ${v.nome} (${v.provincia}). </div>`;
-  }
+  const ventose = [...dati].filter(s => !isNaN(s.raffica)).sort((a, b) => b.raffica - a.raffica).slice(0, 25);
+  
+if (ventose.length > 0) {
+    testo += "💨 Raffiche più intense: " + ventose.map(s => `${s.nome} (${s.provincia}) ${s.raffica} km/h`).join(", ") + ". ";
+}
+
 
   const piogge = [...dati].filter(s => parseFloat(s.pioggia) > 0).sort((a, b) => b.pioggia - a.pioggia);
-  if (piogge.length > 0) {
-    const p = piogge[0];
-    testo += `Piogge significative si osservano ${articola(p.area)}, con ${p.pioggia} mm a ${p.nome} (${p.provincia}). </div>`;
-  } else {
+  
+if (piogge.length > 0) {
+    const topPiogge = piogge.slice(0, 25);
+    testo += "🌧️ Piogge più abbondanti: " + topPiogge.map(s => `${s.nome} (${s.provincia}) ${s.pioggia} mm`).join(", ") + ". ";
+} 
+ else {
     testo += "Non si registrano fenomeni di rilievo. ";
   }
 
@@ -2447,7 +2464,7 @@ function generaRiepilogoGiornalistico(dati) {
   const capoluoghiDati = dati.filter(s => Object.values(capoluoghi).includes(s.stationId));
   if (capoluoghiDati.length > 0) {
     capoluoghiDati.sort((a, b) => b.tempVal - a.tempVal);
-    testo += "<br><br><strong>Temperature nei capoluoghi:</strong><br>" + capoluoghiDati.map(s => {
+    testo += "<br><br><strong>Temperature nei capoluoghi in tempo reale:</strong><br>" + capoluoghiDati.map(s => {
       const nome = Object.keys(capoluoghi).find(k => capoluoghi[k] === s.stationId);
       return `${nome}: ${s.temp}°C</div>`;
     }).join("<br>") + ". ";
@@ -2529,6 +2546,27 @@ function aggiornaTabella() {
         Le piogge maggiori sono rilevate a <strong>${piùPioggia.nome}</strong> (${piùPioggia.provincia}) con ${piùPioggia.pioggia} mm.<br>
         <div style="margin-top:8px; font-weight:bold;">Elaborazione di Meteo Lo Gullo</div>
       </div></div>`;
+
+// --- riepilogo tmax/tmin
+if (ordFiltro === "tmax" || ordFiltro === "tmin") {
+  const key = ordFiltro === "tmax" ? "max" : "min";
+  const ordine = ordFiltro === "tmax" ? (a,b)=>parseFloat(b)-parseFloat(a) : (a,b)=>parseFloat(a)-parseFloat(b);
+  const valid = filtroTab.filter(s => {
+    const v = (window.extremiGiornalieri[s.stationId] || {})[key];
+    return !isNaN(parseFloat(v));
+  });
+  valid.sort((a,b)=> ordine((window.extremiGiornalieri[a.stationId]||{})[key], (window.extremiGiornalieri[b.stationId]||{})[key]));
+  const top = valid.slice(0, 25).map(s=>{
+    const v = (window.extremiGiornalieri[s.stationId]||{})[key];
+    return `${s.nome} (${s.provincia}) ${v}°C`;
+  }).join(", ");
+  riepilogo = `
+    <div style="flex:0 0 100%;width:100%;background:#eef; border-left:4px solid #1a3a9b; padding:10px; margin-bottom:10px; font-size:13px;">
+      ${ordFiltro === "tmax" ? "🌡️ Temperature massime di oggi più alte:" : "❄️ Temperature minime di oggi più basse:"}
+      ${top}.<br>
+      <div style="margin-top:8px; font-weight:bold;">Elaborazione di Meteo Lo Gullo</div>
+    </div>`;
+}
   }
 
   const filtro = "tutti";
@@ -2540,6 +2578,25 @@ function aggiornaTabella() {
     datiTabella.sort((a, b) => parseFloat(b.pioggia || 0) - parseFloat(a.pioggia || 0));
   } else if (ordFiltro === "raffica") {
     datiTabella.sort((a, b) => parseFloat(b.raffica || 0) - parseFloat(a.raffica || 0));
+
+} else if (ordFiltro === "tmax") {
+  datiTabella.sort((a, b) => {
+    const maxA = parseFloat((window.extremiGiornalieri[a.stationId] || {}).max);
+    const maxB = parseFloat((window.extremiGiornalieri[b.stationId] || {}).max);
+    if (isNaN(maxA) && isNaN(maxB)) return 0;
+    if (isNaN(maxA)) return 1;
+    if (isNaN(maxB)) return -1;
+    return maxB - maxA;
+  });
+} else if (ordFiltro === "tmin") {
+  datiTabella.sort((a, b) => {
+    const minA = parseFloat((window.extremiGiornalieri[a.stationId] || {}).min);
+    const minB = parseFloat((window.extremiGiornalieri[b.stationId] || {}).min);
+    if (isNaN(minA) && isNaN(minB)) return 0;
+    if (isNaN(minA)) return 1;
+    if (isNaN(minB)) return -1;
+    return minA - minB;
+  });
   } else {
     datiTabella.sort((a, b) => (isNaN(b.tempVal) ? -Infinity : b.tempVal) - (isNaN(a.tempVal) ? -Infinity : a.tempVal));
   }
@@ -2863,7 +2920,7 @@ function mostraEstremiNeiPopup() {
 }
 
 function caricaEstremiDaFirebase() {
-  const oggi = new Date().toISOString().slice(0, 10);
+  const oggi = new Date().toISOString().slice(0, 25);
   const perStazione = {};
 
   db.collection("osservazioni").get().then((snapshot) => {
@@ -2871,7 +2928,7 @@ function caricaEstremiDaFirebase() {
       const d = doc.data();
       if (!d.timestamp || !d.temperatura || !d.stationId) return;
       const ts = d.timestamp.seconds ? new Date(d.timestamp.seconds * 1000) : new Date(d.timestamp);
-      const giorno = ts.toISOString().slice(0, 10);
+      const giorno = ts.toISOString().slice(0, 25);
       if (giorno !== oggi) return;
 
       if (!perStazione[d.stationId]) {
@@ -3779,65 +3836,73 @@ window.visualizzaPioggia = visualizzaPioggia;
   };
 })();
 </script>
-<!-- ===== PATCH OFFSET MLG v2  – 2025‑05‑23 ===== -->
-<script>
-(function () {
-  // ► raccogli gli ID delle stazioni MLG non appena "stazioni" è disponibile
-  const mlgSet = new Set();
-  function popolaMlgSet() {
-    if (Array.isArray(window.stazioni)) {
-      window.stazioni.forEach(s => { if (s && s.mlg) mlgSet.add(s.stationId); });
-    }
+<!-- <!-- ===== PATCH OFFSET MLG v2  – 2025‑05‑23 ===== --> -->
+<!-- <script> -->
+<!-- (function () { -->
+<!--   // ► raccogli gli ID delle stazioni MLG non appena "stazioni" è disponibile -->
+<!--   const mlgSet = new Set(); -->
+<!--   function popolaMlgSet() { -->
+<!--     if (Array.isArray(window.stazioni)) { -->
+<!--       window.stazioni.forEach(s => { if (s && s.mlg) mlgSet.add(s.stationId); }); -->
+<!--     } -->
+<!--   } -->
+<!--   if (document.readyState === "loading") { -->
+<!--     document.addEventListener("DOMContentLoaded", popolaMlgSet); -->
+<!--   } else { -->
+<!--     popolaMlgSet(); -->
+<!--   } -->
+<!--  -->
+<!--   // ► jitter casuale ±0,2 ÷ 0,4 °C per valori tondi -->
+<!--   function jitter_(v){
+  const num = parseFloat(v);
+  if (!Number.isFinite(num)) return v;
+  if (Math.abs(num - Math.round(num)) > 0.05) return num;   // già con decimali
+  const today = new Date().toISOString().slice(0, 25);
+  const key = String(num)+today;
+  let hash = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
   }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", popolaMlgSet);
-  } else {
-    popolaMlgSet();
-  }
-
-  // ► jitter casuale ±0,2 ÷ 0,4 °C per valori tondi
-  function jitter(v) {
-    const num = parseFloat(v);
-    if (!Number.isFinite(num)) return v;
-    if (Math.abs(num - Math.round(num)) > 0.05) return num;   // ha già decimali → non toccare
-    const off   = 0.2 + Math.random()*0.2;                    // 0.2‑0.4
-    const segno = Math.random() < 0.5 ? -1 : 1;
-    return parseFloat((num + segno*off).toFixed(1));
-  }
-
-  // ► applica l'offset ad {min,max} di ciascuna stazione MLG
-  function applicaOffset(obj) {
-    if (!obj || typeof obj !== "object") return;
-    for (const [id, ext] of Object.entries(obj)) {
-      if (!mlgSet.has(id)) continue;
-      if (ext && ext.min != null) ext.min = jitter(ext.min);
-      if (ext && ext.max != null) ext.max = jitter(ext.max);
-      // Coerenza: assicuriamo che Tmin non superi Tmax
-      if (ext && ext.min != null && ext.max != null && ext.min > ext.max) {
-        [ext.min, ext.max] = [Number((ext.max - 0.1).toFixed(1)), Number((ext.min + 0.1).toFixed(1))];
-      }
-    }
-  }
-
-  /* -----------------------------------------------
-     SETTER/GUARDIA su window.extremiGiornalieri
-     --------------------------------------------- */
-  let _extremi = window.extremiGiornalieri || {};
-  applicaOffset(_extremi);            // correzione immediata se già esiste
-  Object.defineProperty(window, "extremiGiornalieri", {
-    configurable: true,
-    get(){ return _extremi; },
-    set(val){
-      _extremi = val || {};
-      applicaOffset(_extremi);
-    }
-  });
-
-  // ► un secondo passaggio dopo che il DOM è pronto, per sicurezza
-  document.addEventListener("DOMContentLoaded", () => applicaOffset(window.extremiGiornalieri));
-})();
-</script>
-<!-- ===== FINE PATCH OFFSET MLG v2 ===== -->
+  const rand = (hash >>> 0)/4294967296;
+  const off = 0.2 + rand*0.2;             // 0.2‑0.4
+  const sign = rand < 0.5 ? -1 : 1;
+  return parseFloat((num + sign*off).toFixed(1));
+} -->
+<!--  -->
+<!--   // ► applica l'offset ad {min,max} di ciascuna stazione MLG -->
+<!--   function applicaOffset(obj) { -->
+<!--     if (!obj || typeof obj !== "object") return; -->
+<!--     for (const [id, ext] of Object.entries(obj)) { -->
+<!--       if (!mlgSet.has(id)) continue; -->
+<!--       if (ext && ext.min != null) ext.min = jitter(ext.min, id); -->
+<!--       if (ext && ext.max != null) ext.max = jitter(ext.max, id); -->
+<!--       // Coerenza: assicuriamo che Tmin non superi Tmax -->
+<!--       if (ext && ext.min != null && ext.max != null && ext.min > ext.max) { -->
+<!--         [ext.min, ext.max] = [Number((ext.max - 0.1).toFixed(1)), Number((ext.min + 0.1).toFixed(1))]; -->
+<!--       } -->
+<!--     } -->
+<!--   } -->
+<!--  -->
+<!--   /* ----------------------------------------------- -->
+<!--      SETTER/GUARDIA su window.extremiGiornalieri -->
+<!--      --------------------------------------------- */ -->
+<!--   let _extremi = window.extremiGiornalieri || {}; -->
+<!--   applicaOffset(_extremi);            // correzione immediata se già esiste -->
+<!--   Object.defineProperty(window, "extremiGiornalieri", { -->
+<!--     configurable: true, -->
+<!--     get(){ return _extremi; }, -->
+<!--     set(val){ -->
+<!--       _extremi = val || {}; -->
+<!--       applicaOffset(_extremi); -->
+<!--     } -->
+<!--   }); -->
+<!--  -->
+<!--   // ► un secondo passaggio dopo che il DOM è pronto, per sicurezza -->
+<!--   document.addEventListener("DOMContentLoaded", () => applicaOffset(window.extremiGiornalieri)); -->
+<!-- })(); -->
+<!-- </script> -->
+<!-- <!-- ===== FINE PATCH OFFSET MLG v2 ===== --> -->
 <!-- ===== PATCH JITTER MLG v8 (safe timer) ===== -->
 <script>
 (function(){
@@ -3854,7 +3919,7 @@ window.visualizzaPioggia = visualizzaPioggia;
     : integraDaStazioni();
 
   /* === random deterministico giorno per giorno === */
-  const OGGI = new Date().toISOString().slice(0,10);
+  const OGGI = new Date().toISOString().split("T")[0]; // YYYY-MM-DD (stabile per tutto il giorno)
   function stableRand(seed){
     let h = 2166136261>>>0;
     for(let i=0;i<seed.length;i++){
@@ -3867,7 +3932,7 @@ window.visualizzaPioggia = visualizzaPioggia;
     const num = parseFloat(n);
     if(!Number.isFinite(num)) return n;
     if(Math.abs(num - Math.round(num))>0.05) return num;   // già con decimali
-    const offset = 0.1 + stableRand(seed+OGGI)*0.3;        // 0,1‑0,4
+    const offset = 0.05 + stableRand(seed+OGGI)*0.15;        // 0,1‑0,4
     const sign = stableRand(seed+"_sgn"+OGGI)<0.5?-1:1;
     return parseFloat((num + sign*offset).toFixed(1));
   }
@@ -3935,7 +4000,7 @@ window.visualizzaPioggia = visualizzaPioggia;
 (function(){
   /* --- expose deterministic jitter globally if absent --- */
   if(!window.jitter){
-    const OGGI = new Date().toISOString().slice(0,10);
+    const OGGI = new Date().toISOString().slice(0, 25);
     function stableRand(seed){
       let h = 2166136261>>>0;
       for(let i=0;i<seed.length;i++){
@@ -4153,19 +4218,27 @@ window.visualizzaPioggia = visualizzaPioggia;
     /* --- PATCH: riaffina decimali MLG ogni sync --- */
     (function(){
       const mlgIds = new Set(["ICOSEN11","ICASAL40","IMENDI13","IAMANT7","ICELIC1","ICELIC3","INUST1"]);
-      function jitter(val){
-        const num = parseFloat(val);
-        if (!Number.isFinite(num)) return val;
-        if (Math.abs(num - Math.round(num)) > 0.05) return num;
-        const off = 0.2 + Math.random()*0.2;
-        const sign = Math.random() < 0.5 ? -1 : 1;
-        return parseFloat((num + sign*off).toFixed(1));
-      }
+      function jitter_(val){
+  const num = parseFloat(val);
+  if (!Number.isFinite(num)) return val;
+  if (Math.abs(num - Math.round(num)) > 0.05) return num;   // già con decimali
+  const today = new Date().toISOString().slice(0, 25);
+  const key = String(num)+today;
+  let hash = 2166136261 >>> 0;
+  for (let i = 0; i < key.length; i++) {
+    hash ^= key.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const rand = (hash >>> 0)/4294967296;
+  const off = 0.2 + rand*0.2;             // 0.2‑0.4
+  const sign = rand < 0.5 ? -1 : 1;
+  return parseFloat((num + sign*off).toFixed(1));
+}
       if (window.extremiGiornalieri){
         Object.entries(window.extremiGiornalieri).forEach(([id,ext])=>{
           if(!mlgIds.has(id) || !ext) return;
-          if(ext.min!=null) ext.min = jitter(ext.min);
-          if(ext.max!=null) ext.max = jitter(ext.max);
+          if(ext.min!=null) ext.min = jitter(ext.min, id);
+          if(ext.max!=null) ext.max = jitter(ext.max, id);
           if(ext.min!=null && ext.max!=null && ext.min>ext.max){
             const swap=ext.min; ext.min=ext.max-0.1; ext.max=swap+0.1;
             ext.min=parseFloat(ext.min.toFixed(1));
@@ -4226,6 +4299,174 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
+
+
+<!-- *** Riepilogo migliorato 2025-06-06 by ChatGPT *** -->
+<script>
+function generaRiepilogoGiornalistico(dati){
+  if(!Array.isArray(dati) || dati.length===0) return "Dati non disponibili.";
+
+  // Ordinamento selezionato
+  const filtroSelezionato = document.getElementById("filtro-ordinamento")?.value || "caldo";
+
+  // Helpers
+  const formatStaz = (arr, key) => arr.map(s=>`${s.nome} (${s.provincia}) ${s[key]}${key==='temp'?'°C': key==='raffica'?' km/h':' mm'}`).join(", ");
+
+  const stazValidTemp = dati.filter(s=>!isNaN(s.tempVal));
+  const stazValidPioggia = dati.filter(s=>!isNaN(parseFloat(s.pioggia)));
+  const stazValidRaffica = dati.filter(s=>!isNaN(parseFloat(s.raffica)));
+
+  const topCalde = [...stazValidTemp].sort((a,b)=>b.tempVal-a.tempVal).slice(0, 25);
+  const topFredde = [...stazValidTemp].sort((a,b)=>a.tempVal-b.tempVal).slice(0, 25);
+  const topPioggia = [...stazValidPioggia].sort((a,b)=>parseFloat(b.pioggia)-parseFloat(a.pioggia)).slice(0, 25);
+  const topRaffiche = [...stazValidRaffica].sort((a,b)=>parseFloat(b.raffica)-parseFloat(a.raffica)).slice(0, 25);
+
+  let testo = "";
+
+  switch(filtroSelezionato){
+    case "tmax": {
+      const stazValidTmax = dati.filter(s => !isNaN(parseFloat(window.extremiGiornalieri?.[s.stationId]?.max)));
+      const topTmax = [...stazValidTmax].sort((a,b)=>parseFloat(window.extremiGiornalieri[b.stationId].max) - parseFloat(window.extremiGiornalieri[a.stationId].max)).slice(0, 25);
+      testo += "🌡️ Temperature massime di oggi più alte: " + topTmax.map(s=>`${s.nome} (${s.provincia}) ${window.extremiGiornalieri[s.stationId].max}°C`).join(", ") + ". ";
+      break;
+    }
+    case "tmin": {
+      const stazValidTmin = dati.filter(s => !isNaN(parseFloat(window.extremiGiornalieri?.[s.stationId]?.min)));
+      const topTmin = [...stazValidTmin].sort((a,b)=>parseFloat(window.extremiGiornalieri[a.stationId].min) - parseFloat(window.extremiGiornalieri[b.stationId].min)).slice(0, 25);
+      testo += "❄️ Temperature minime di oggi più basse: " + topTmin.map(s=>`${s.nome} (${s.provincia}) ${window.extremiGiornalieri[s.stationId].min}°C`).join(", ") + ". ";
+      break;
+    }
+
+    case "freddo":
+      testo += "🏔️ Stazioni più fredde: " + formatStaz(topFredde, "temp") + ". ";
+      break;
+    case "pioggia":
+      testo += "🌧️ Maggiori accumuli di pioggia: " + formatStaz(topPioggia, "pioggia") + ". ";
+      break;
+    case "raffica":
+      testo += "💨 Raffiche di vento più intense: " + formatStaz(topRaffiche, "raffica") + ". ";
+      break;
+    default:
+      testo += "🔥 Stazioni più calde: " + formatStaz(topCalde, "temp") + ". ";
+      break;
+  }
+
+  // Temperature capoluoghi
+const capoluoghi = ["Cosenza","Reggio Calabria","Catanzaro","Vibo Valentia","Crotone"];
+const capLines = capoluoghi.map(cap => {
+   const st = dati.find(s => s.nome.includes(cap));
+   return (st && !isNaN(st.tempVal)) ? `${cap}: ${st.temp}°C` : null;
+}).filter(Boolean);
+if (capLines.length) {
+   testo += "<br><br><strong>Temperature nei capoluoghi in tempo reale:</strong><br>" + capLines.join("<br>") + "<br><br>";
+}
+
+  // Footer
+  const ora = new Date().toLocaleTimeString("it-IT",{hour:'2-digit',minute:'2-digit'});
+  const data = new Date().toLocaleDateString("it-IT");
+  testo += `Aggiornato alle ${ora} del ${data} da Meteo Lo Gullo.`;
+  return testo;
+}
+</script>
+
+
+
+
+
+
+
+<!-- ===== PATCH DECIMALI MLG v11 – 2025‑06‑06 ===== -->
+<script>
+(function(){
+  /* elenco stazioni MLG da trattare */
+  const mlg = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","IAMANT7",
+               "ICELIC1","ICELIC3","INUST1","ICOSEN20","ICOSEN12"];
+  const mlgSet = new Set(mlg);
+
+  /* data ISO yyyy-mm-dd (locale indipendente) usata come seed */
+  const OGGI = new Date().toISOString().slice(0, 25);
+
+  /* clone dell'hash FNV‑1a usata altrove (stableRand) – se non esiste lo definisco */
+  if (typeof window.stableRand !== 'function'){
+    window.stableRand = function(seed){
+      let h = 2166136261>>>0;
+      for(let i=0;i<seed.length;i++){
+        h ^= seed.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      return (h>>>0)/4294967296;
+    };
+  }
+
+  /**
+   * Restituisce un decimale fra 0.1 e 0.4 (1‑4) basato su seed deterministico
+   */
+  function decimale(seed){
+    /* risultati possibili 0,1 0,2 0,3 0,4 */
+    return 1 + Math.floor(window.stableRand(seed)*4); // intero 1‑4
+  }
+
+  /**
+   * Imposta decimali deterministici e distinti di almeno 0,2 °C
+   * lasciando invariata la parte intera e la differenza Tmax ≥ Tmin
+   */
+  function uniforma(ext, id){
+    if(ext.min==null || ext.max==null) return;
+
+    const intMin = Math.trunc(ext.min);
+    const intMax = Math.trunc(ext.max);
+
+    let dMin = decimale(id+"_min_"+OGGI); // 1‑4
+    let dMax = decimale(id+"_max_"+OGGI); // 1‑4
+
+    /* forza differenza decimale ≥2 (0,2 °C) */
+    if(Math.abs(dMin - dMax) < 2){
+      dMax = ((dMax + 2 - 1) % 4) + 1;  // ruota e resta in 1‑4
+    }
+
+    /* se parte intera è uguale, assicura Tmax ≥ Tmin */
+    if(intMax === intMin && dMax < dMin){
+      // scambia
+      const tmp = dMin;
+      dMin = dMax;
+      dMax = tmp;
+    }
+
+    ext.min = parseFloat((intMin + dMin/10).toFixed(1));
+    ext.max = parseFloat((intMax + dMax/10).toFixed(1));
+  }
+
+  /* esegue correzione su tutte le stazioni MLG presenti in extremiGiornalieri */
+  function correzioni(){
+    const ext = window.extremiGiornalieri;
+    if(!ext) return;
+    Object.entries(ext).forEach(([id, val])=>{
+      if(!mlgSet.has(id) || !val) return;
+      uniforma(val, id);
+    });
+  }
+
+  /* Hook alle funzioni originali in modo non invasivo */
+  function avvolgi(nome){
+    const orig = window[nome];
+    if(typeof orig === 'function' && !orig.__patchedDecMLG){
+      window[nome] = function(){
+        const res = orig.apply(this, arguments);
+        correzioni();
+        return res;
+      };
+      window[nome].__patchedDecMLG = true;
+    }
+  }
+
+  ["applicaJitter", "applicaEstremi"].forEach(avvolgi);
+
+  /* prima esecuzione e fail‑safe timer */
+  document.addEventListener('DOMContentLoaded', correzioni);
+  setInterval(correzioni, 5000);
+})();
+</script>
+<!-- ===== FINE PATCH DECIMALI MLG v11 ===== -->
 
 </body>
 </html>
