@@ -2927,6 +2927,106 @@ function interpretazioneWeatherCode(code) {
 }
 
 </script>
+
+<!-- === FAST LOADER & FETCH OPTIMIZER v1.1 (2025‑06‑16) === -->
+<script>
+(() => {
+  /*  Faster PWS loader – separate pool per host
+      - api.weather.com (WU) : 12 in parallelo
+      - api.open-meteo.com   : 6  in parallelo
+      - altri domini         : nessun limite
+      - 5 min sessionStorage cache
+  */
+  const CACHE_MS = 5*60*1000;
+  const limits = {
+    'api.weather.com': 12,
+    'api.open-meteo.com': 6
+  };
+  const queues = new Map();
+  const actives = new Map();
+
+  const origFetch = window.fetch;
+  window.fetch = async function(resource, init){
+    const url = typeof resource === 'string' ? resource : resource.url;
+    const host = (()=>{ try{ return new URL(url).host; }catch(e){ return ''; }})();
+    const limit = limits[host] || Infinity;
+
+    const cacheKey = /api\.weather\.com|api\.open-meteo\.com/.test(host) ? 'fCache_'+url : null;
+    if (cacheKey){
+      try{
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached){
+          const obj = JSON.parse(cached);
+          if (Date.now()-obj.t < CACHE_MS){
+            return new Response(obj.body, {status:200, headers:{'Content-Type':'application/json'}});
+          }
+        }
+      }catch(e){}
+    }
+
+    // For un‑limited hosts, bypass queue
+    if (!isFinite(limit)) return origFetch(resource, init);
+
+    // ensure structures
+    if (!queues.has(host)) { queues.set(host, []); actives.set(host, 0); }
+
+    return new Promise((resolve, reject) => {
+      queues.get(host).push({resource, init, resolve, reject});
+      pump(host, limit);
+    });
+  };
+
+  function pump(host, limit){
+    const active = actives.get(host);
+    const q = queues.get(host);
+    if (active >= limit || q.length === 0) return;
+    const {resource, init, resolve, reject} = q.shift();
+    actives.set(host, active+1);
+    (async () => {
+      try{
+        const res = await fetchReal(resource, init);
+        resolve(res);
+      }catch(e){ reject(e); }
+      actives.set(host, actives.get(host)-1);
+      pump(host, limit);
+    })();
+  }
+
+  async function fetchReal(resource, init){
+    const url = typeof resource==='string'?resource:resource.url;
+    const host = new URL(url).host;
+    const cacheKey = /api\.weather\.com|api\.open-meteo\.com/.test(host) ? 'fCache_'+url : null;
+    const res = await origFetch(resource, init);
+    if (cacheKey && res.ok){
+      try{
+        const txt = await res.clone().text();
+        sessionStorage.setItem(cacheKey, JSON.stringify({t:Date.now(), body:txt}));
+        return new Response(txt, res);
+      }catch(e){}
+    }
+    return res;
+  }
+
+  /* deduplicate markers */
+  function patchAdd(){
+    const orig = window.aggiungiMarker;
+    if (!orig || orig.__fastPatch) return;
+    window.aggiungiMarker = function(staz, obs){
+      if (window.markersById?.[staz.stationId]){
+        try{ map.removeLayer(window.markersById[staz.stationId]); }catch(e){}
+      }
+      return orig.apply(this, arguments);
+    };
+    window.aggiungiMarker.__fastPatch = true;
+  }
+  document.readyState==='loading'
+    ? document.addEventListener('DOMContentLoaded', patchAdd)
+    : patchAdd();
+})();
+</script>
+<!-- === /FAST LOADER & FETCH OPTIMIZER === -->
+
+
 <div id="slide-banner" onclick="apriInfoMappa()" style="position: fixed; right: -300px; background: #1a3a9b; color: white; padding: 10px 20px; border-radius: 4px 0 0 4px; font-size: 14px; font-weight: 500; cursor: pointer; z-index: 9999; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: right 0.5s ease; ; top: 65px">Come leggere questa mappa?<span onclick="document.getElementById('slide-banner').style.display = 'none'; event.stopPropagation();" style="margin-left: 10px; font-weight: bold;"> ✕</span></div><script>
 window.addEventListener("load", function() {
   setTimeout(function() {
