@@ -5265,6 +5265,45 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <!-- /PATCH: syncDiscrepanzeEstremiGlobali v2 -->
+
+<!-- === FIX BIANCHI EXTREMES RANGE (v1) === -->
+<script>
+(function(){
+  const ID = "IBIANC4";
+  const MIN_LIMIT = -15;   // °C  limite inferiore plausibile
+  const MAX_LIMIT =  45;   // °C  limite superiore plausibile
+
+  function sanitize(ext){
+    if(!ext) return;
+    if(typeof ext.min === "number" && (ext.min < MIN_LIMIT || ext.min > MAX_LIMIT)){
+      delete ext.min;
+    }
+    if(typeof ext.max === "number" && (ext.max > MAX_LIMIT || ext.max < MIN_LIMIT)){
+      delete ext.max;
+    }
+    if(ext.min != null && ext.max != null && ext.min > ext.max){
+      const t = ext.min; ext.min = ext.max; ext.max = t;
+    }
+  }
+
+  // Prima correzione immediata
+  if(window.extremiGiornalieri && window.extremiGiornalieri[ID]){
+    sanitize(window.extremiGiornalieri[ID]);
+  }
+
+  // Proxy per garantire correzioni future
+  let _ext = window.extremiGiornalieri || {};
+  Object.defineProperty(window, "extremiGiornalieri", {
+    configurable: true,
+    get(){ return _ext; },
+    set(v){
+      _ext = v || {};
+      if(_ext[ID]) sanitize(_ext[ID]);
+    }
+  });
+})();
+</script>
+<!-- === /FIX BIANCHI EXTREMES RANGE === -->
 </body>
 </html>
 <script>
