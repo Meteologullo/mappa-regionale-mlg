@@ -2421,7 +2421,7 @@ function chiudiGrafico() {
 
 stazioni.forEach((s) => {
   if (s.openMeteo) {
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&daily=temperature_2m_min,temperature_2m_max&timezone=UTC`)
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${s.lat}&longitude=${s.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&timezone=UTC`)
       .then(res => res.json())
       .then(data => {
         const obs = {
@@ -2434,13 +2434,6 @@ stazioni.forEach((s) => {
           windGust: data.current.wind_gusts_10m,
           obsTimeUtc: data.current.time
         };
-        // Estremi giornalieri da Open‑Meteo (daily)
-        const tMin = data.daily?.temperature_2m_min?.[0] ?? null;
-        const tMax = data.daily?.temperature_2m_max?.[0] ?? null;
-        obs.temp_min = tMin;
-        obs.temp_max = tMax;
-        window.extremiGiornalieri = window.extremiGiornalieri || {};
-        window.extremiGiornalieri[s.stationId] = { min: tMin, max: tMax };
         aggiungiMarker(s, obs);
       });
   } else if (s.apiKey) {
@@ -3987,7 +3980,7 @@ async function caricaDatiOpenMeteo() {
   const oggi = new Date().toISOString().split('T')[0];
   for (const stazione of stazioni.filter(s => s.openMeteo)) {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&daily=precipitation_sum&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
       const res = await fetch(url);
       const data = await res.json();
       console.log("Dati OpenMeteo per", stazione.stationId, data);
@@ -5404,6 +5397,43 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 <!-- === /FIX BIANCHI EXTREMES RANGE === -->
+
+<script>
+/* === RESET ESTREMI GIORNALIERI (solo Firestore) === */
+(function(){
+  const TIMEZONE = 'Europe/Rome';
+
+  async function refreshDailyExtremes(){
+    if(typeof caricaEstremiDaFirebase === 'function'){
+      await caricaEstremiDaFirebase();
+    }
+    if(typeof aggiornaTabella === 'function') aggiornaTabella();
+    if(typeof visualizzaEstremi === 'function'){
+      const btn = document.querySelector('.sidebar-btn.attivo');
+      if(btn){
+        if(btn.innerText==='MAX') visualizzaEstremi('max');
+        else if(btn.innerText==='MIN') visualizzaEstremi('min');
+      }
+    }
+  }
+
+  function scheduleNextMidnight(){
+    const now = new Date();
+    const tzNow = new Date(now.toLocaleString('en-US',{timeZone:TIMEZONE}));
+    const next = new Date(tzNow);
+    next.setDate(tzNow.getDate()+1);
+    next.setHours(0,0,5,0);  // 5s after local midnight
+    const delay = next - tzNow;
+    setTimeout(()=>{refreshDailyExtremes().then(scheduleNextMidnight);}, delay);
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // primo caricamento già avviene via caricaEstremiDaFirebase su load
+    scheduleNextMidnight();
+  });
+})();
+</script>
+
 </body>
 </html>
 <script>
