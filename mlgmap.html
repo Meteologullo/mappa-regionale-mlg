@@ -3,6 +3,7 @@
 <html lang="it">
 <head>
 <style id="hideMarkerOpacity">.leaflet-marker-icon,.leaflet-marker-shadow{opacity:0;transition:opacity 0.15s linear;}</style>
+
 <meta charset="utf-8"/>
 <title>Mappa Meteo Calabria</title>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
@@ -1726,7 +1727,7 @@ html, body {
     }
   }
 </style>
-<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet"/><script defer="" src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script></head>
+<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet"/><script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script></head>
 <body>
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
@@ -1809,8 +1810,8 @@ html, body {
 <option value="freddo">Stazione più fredda (live)</option>
 <option value="raffica">Raffiche</option>
 <option value="pioggia">Pioggia</option>
-<option value="tmax">T. max più alta</option>
-<option value="tmin">T. min più bassa</option>
+    <option value="tmax">T. max più alta</option>
+    <option value="tmin">T. min più bassa</option>
 </select>
 <label class="mlg-label-small">
 <input id="filtro-mlg" onchange="aggiornaTabella()" type="checkbox"/>
@@ -1993,7 +1994,7 @@ function calcolaCondizioneTermica(temp, umidita) {
 const stazioni = [
   { nome: "Bianchi - Palinudo Staglio", mlg: true, lat: 39.11, lon: 16.42, quota: "830 m", provincia: "CS", regione: "Calabria", area: "Valle del Corace", stationId: "IBIANC4", apiKey: "2ccb91c2398a4f778b91c2398a4f772f", webcam: "", linkStazione: "https://esempio.it/stazioni/nuova-stazione-1" },
   { nome: "Cosenza - Vaglio Lise", mlg: true, lat: 39.32, lon: 16.26, quota: "208 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN11", apiKey: "03d402e1e8844ac49402e1e8844ac419", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-cosenza-vaglio-lise" },
-  { nome: "Amantea Spiaggia", mlg: true, lat: 39.13, lon: 16.07, quota: "0 m", provincia: "CS", regione: "Calabria", area: "Costa Tirrenica Cosentina", stationId: "IAMANT7", apiKey: "a3f4ae4f9b6d46a4b4ae4f9b6d06a494", webcam: "https://images.weserv.nl/?url=ssl:osswww.ecowitt.net/images/webcam/v0/2025_06_16/249399/a4216164236fd49f11d937ee460a87db.jpg", linkStazione: "https://www.meteologullo.com/stazione-amantea-spiaggia" },
+  { nome: "Amantea Spiaggia", mlg: true, lat: 39.13, lon: 16.07, quota: "0 m", provincia: "CS", regione: "Calabria", area: "Costa Tirrenica Cosentina", stationId: "IAMANT7", apiKey: "a3f4ae4f9b6d46a4b4ae4f9b6d06a494", webcam: "https://images-webcams.windy.com/75/1350579375/daylight/preview/1350579375.jpg", linkStazione: "https://www.meteologullo.com/stazione-amantea-spiaggia" },
   { nome: "Monte Scuro - Celico", mlg: true, lat: 39.33, lon: 16.4, quota: "1643 m", provincia: "CS", regione: "Calabria", area: "Vetta della Sila Grande", stationId: "ICELIC3", apiKey: "2d12def7f4894eca92def7f4892eca99", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-meteo-di-monte-scuro-celico" },
   { nome: "Cosenza - Campagnano", mlg: true, lat: 39.31, lon: 16.23, quota: "234 m", provincia: "CS", regione: "Calabria", area: "Valle del Crati", stationId: "ICOSEN20", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-cosenza-campagnano" },
   { nome: "Mendicino - Tivolille Pasquali", mlg: true, lat: 39.28, lon: 16.2, quota: "431 m", provincia: "CS", regione: "Calabria", area: "Pre-Catena Costiera Interna", stationId: "IMENDI13", apiKey: "844d02e7e12049ef8d02e7e120b9ef68", webcam: "", linkStazione: "https://www.meteologullo.com/stazione-mendicino-tivolille" },
@@ -2402,9 +2403,10 @@ function getTextColorForBackground(bgColor) {
 
 function getEstremoGiornaliero(stationId, tipo) {
   const entry = datiTabella.find(d => d.stationId === stationId);
-  if (!entry) return undefined;
-  return tipo === 'max' ? (entry.tMax ?? window.extremiGiornalieri[stationId]?.max) 
-                        : (entry.tMin ?? window.extremiGiornalieri[stationId]?.min);
+  if (!entry) return window.extremiGiornalieri[stationId]?.[tipo === 'max' ? 'max' : 'min'];
+  // Prefer the latest value recalculated in window.extremiGiornalieri; fall back to the baseline in datiTabella
+  return tipo === 'max' ? (window.extremiGiornalieri[stationId]?.max ?? entry.tMax)
+                        : (window.extremiGiornalieri[stationId]?.min ?? entry.tMin);
 }
 
 
@@ -2434,6 +2436,13 @@ stazioni.forEach((s) => {
           windGust: data.current.wind_gusts_10m,
           obsTimeUtc: data.current.time
         };
+        // Estremi giornalieri da Open‑Meteo (daily)
+//         const tMin = data.daily?.temperature_2m_min?.[0] ?? null;
+//         const tMax = data.daily?.temperature_2m_max?.[0] ?? null;
+//         obs.temp_min = tMin;
+//         obs.temp_max = tMax;
+        window.extremiGiornalieri = window.extremiGiornalieri || {};
+//         window.extremiGiornalieri[s.stationId] = { min: tMin, max: tMax };
         aggiungiMarker(s, obs);
       });
   } else if (s.apiKey) {
@@ -2495,15 +2504,6 @@ function aggiungiMarker(staz, obs) {
   }
 }
     tempVal = parseFloat(rawTemp.toFixed(1));
-    // --- CLAMP: assicurati che tempVal rispetti Tmin/Tmax ---
-    {
-      const ex = window.extremiGiornalieri?.[staz.stationId];
-      if (ex) {
-        if (ex.max != null && tempVal > ex.max) tempVal = ex.max;
-        if (ex.min != null && tempVal < ex.min) tempVal = ex.min;
-      }
-    }
-
     temp = tempVal.toFixed(1);
   }
 
@@ -2617,7 +2617,7 @@ function generaRiepilogoGiornalistico(dati) {
   testo += `le temperature risultano ${condTermica}. Le aree più calde includono </div>`;
 
   const areeCalde = {};
-  [...stazioniConTemp].sort((a, b) => b.tempVal - a.tempVal).split("T")[0].forEach(s => {
+  [...stazioniConTemp].sort((a, b) => b.tempVal - a.tempVal).slice(0, 25).forEach(s => {
     const areaKey = s.area || mappaStazioneMicroarea[s.nome] || "area non specificata";
     if (!areeCalde[areaKey]) areeCalde[areaKey] = [];
     areeCalde[areaKey].push(s);
@@ -2629,13 +2629,13 @@ function generaRiepilogoGiornalistico(dati) {
     return `${art}, dove ${nomi.join(", ")} stanno registrando ${stazioni[0].temp}°C</div>`;
   }).join("; ") + ". ";
 
-  const fredde = [...stazioniConTemp].sort((a, b) => a.tempVal - b.tempVal).split("T")[0];
+  const fredde = [...stazioniConTemp].sort((a, b) => a.tempVal - b.tempVal).slice(0, 25);
   if (fredde.length > 0) {
     testo += "Le aree più fresche includono ";
     testo += fredde.map(s => `${s.nome} (${s.provincia}) con ${s.temp}°C`).join(" e ") + ". ";
   }
 
-  const ventose = [...dati].filter(s => !isNaN(s.raffica)).sort((a, b) => b.raffica - a.raffica).split("T")[0];
+  const ventose = [...dati].filter(s => !isNaN(s.raffica)).sort((a, b) => b.raffica - a.raffica).slice(0, 25);
   
 if (ventose.length > 0) {
     testo += "💨 Raffiche più intense: " + ventose.map(s => `${s.nome} (${s.provincia}) ${s.raffica} km/h`).join(", ") + ". ";
@@ -2645,7 +2645,7 @@ if (ventose.length > 0) {
   const piogge = [...dati].filter(s => parseFloat(s.pioggia) > 0).sort((a, b) => b.pioggia - a.pioggia);
   
 if (piogge.length > 0) {
-    const topPiogge = piogge.split("T")[0];
+    const topPiogge = piogge.slice(0, 25);
     testo += "🌧️ Piogge più abbondanti: " + topPiogge.map(s => `${s.nome} (${s.provincia}) ${s.pioggia} mm`).join(", ") + ". ";
 } 
  else {
@@ -2754,7 +2754,7 @@ if (ordFiltro === "tmax" || ordFiltro === "tmin") {
     return !isNaN(parseFloat(v));
   });
   valid.sort((a,b)=> ordine((window.extremiGiornalieri[a.stationId]||{})[key], (window.extremiGiornalieri[b.stationId]||{})[key]));
-  const top = valid.split("T")[0].map(s=>{
+  const top = valid.slice(0, 25).map(s=>{
     const v = (window.extremiGiornalieri[s.stationId]||{})[key];
     return `${s.nome} (${s.provincia}) ${v}°C`;
   }).join(", ");
@@ -2920,106 +2920,6 @@ function interpretazioneWeatherCode(code) {
 }
 
 </script>
-
-<!-- === FAST LOADER & FETCH OPTIMIZER v1.1 (2025‑06‑16) === -->
-<script>
-(() => {
-  /*  Faster PWS loader – separate pool per host
-      - api.weather.com (WU) : 12 in parallelo
-      - api.open-meteo.com   : 6  in parallelo
-      - altri domini         : nessun limite
-      - 5 min sessionStorage cache
-  */
-  const CACHE_MS = 5*60*1000;
-  const limits = {
-    'api.weather.com': 12,
-    'api.open-meteo.com': 6
-  };
-  const queues = new Map();
-  const actives = new Map();
-
-  const origFetch = window.fetch;
-  window.fetch = async function(resource, init){
-    const url = typeof resource === 'string' ? resource : resource.url;
-    const host = (()=>{ try{ return new URL(url).host; }catch(e){ return ''; }})();
-    const limit = limits[host] || Infinity;
-
-    const cacheKey = /api\.weather\.com|api\.open-meteo\.com/.test(host) ? 'fCache_'+url : null;
-    if (cacheKey){
-      try{
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached){
-          const obj = JSON.parse(cached);
-          if (Date.now()-obj.t < CACHE_MS){
-            return new Response(obj.body, {status:200, headers:{'Content-Type':'application/json'}});
-          }
-        }
-      }catch(e){}
-    }
-
-    // For un‑limited hosts, bypass queue
-    if (!isFinite(limit)) return origFetch(resource, init);
-
-    // ensure structures
-    if (!queues.has(host)) { queues.set(host, []); actives.set(host, 0); }
-
-    return new Promise((resolve, reject) => {
-      queues.get(host).push({resource, init, resolve, reject});
-      pump(host, limit);
-    });
-  };
-
-  function pump(host, limit){
-    const active = actives.get(host);
-    const q = queues.get(host);
-    if (active >= limit || q.length === 0) return;
-    const {resource, init, resolve, reject} = q.shift();
-    actives.set(host, active+1);
-    (async () => {
-      try{
-        const res = await fetchReal(resource, init);
-        resolve(res);
-      }catch(e){ reject(e); }
-      actives.set(host, actives.get(host)-1);
-      pump(host, limit);
-    })();
-  }
-
-  async function fetchReal(resource, init){
-    const url = typeof resource==='string'?resource:resource.url;
-    const host = new URL(url).host;
-    const cacheKey = /api\.weather\.com|api\.open-meteo\.com/.test(host) ? 'fCache_'+url : null;
-    const res = await origFetch(resource, init);
-    if (cacheKey && res.ok){
-      try{
-        const txt = await res.clone().text();
-        sessionStorage.setItem(cacheKey, JSON.stringify({t:Date.now(), body:txt}));
-        return new Response(txt, res);
-      }catch(e){}
-    }
-    return res;
-  }
-
-  /* deduplicate markers */
-  function patchAdd(){
-    const orig = window.aggiungiMarker;
-    if (!orig || orig.__fastPatch) return;
-    window.aggiungiMarker = function(staz, obs){
-      if (window.markersById?.[staz.stationId]){
-        try{ map.removeLayer(window.markersById[staz.stationId]); }catch(e){}
-      }
-      return orig.apply(this, arguments);
-    };
-    window.aggiungiMarker.__fastPatch = true;
-  }
-  document.readyState==='loading'
-    ? document.addEventListener('DOMContentLoaded', patchAdd)
-    : patchAdd();
-})();
-</script>
-<!-- === /FAST LOADER & FETCH OPTIMIZER === -->
-
-
 <div id="slide-banner" onclick="apriInfoMappa()" style="position: fixed; right: -300px; background: #1a3a9b; color: white; padding: 10px 20px; border-radius: 4px 0 0 4px; font-size: 14px; font-weight: 500; cursor: pointer; z-index: 9999; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: right 0.5s ease; ; top: 65px">Come leggere questa mappa?<span onclick="document.getElementById('slide-banner').style.display = 'none'; event.stopPropagation();" style="margin-left: 10px; font-weight: bold;"> ✕</span></div><script>
 window.addEventListener("load", function() {
   setTimeout(function() {
@@ -3110,6 +3010,8 @@ function chiudiInfoMappa() {
   window.addEventListener("load", caricaEstremiDaFirebase);
 </script>
 <!-- Firebase App (the core Firebase SDK) -->
+
+
 <script>
   const firebaseConfig = {
     apiKey: "AIzaSyBlNQX8Y-REPLACE-WITH-YOURS",
@@ -3150,6 +3052,8 @@ function chiudiInfoMappa() {
   });
 </script>
 <!-- Firebase compat + Calcolo estremo client-side -->
+
+
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBlNQX8Y-REPLACE-WITH-YOURS",
@@ -3980,7 +3884,7 @@ async function caricaDatiOpenMeteo() {
   const oggi = new Date().toISOString().split('T')[0];
   for (const stazione of stazioni.filter(s => s.openMeteo)) {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&daily=precipitation_sum&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
       const res = await fetch(url);
       const data = await res.json();
       console.log("Dati OpenMeteo per", stazione.stationId, data);
@@ -4130,7 +4034,7 @@ window.visualizzaPioggia = visualizzaPioggia;
   };
 })();
 </script>
-<!-- <!-- ===== PATCH OFFSET MLG v2  – 2025‑05‑23 ===== --> --&gt;
+<!-- <!-- ===== PATCH OFFSET MLG v2  – 2025‑05‑23 ===== --> -->
 <!-- <script> -->
 <!-- (function () { -->
 <!--   // ► raccogli gli ID delle stazioni MLG non appena "stazioni" è disponibile -->
@@ -4145,7 +4049,7 @@ window.visualizzaPioggia = visualizzaPioggia;
 <!--   } else { -->
 <!--     popolaMlgSet(); -->
 <!--   } -->
-<!-- -->
+<!--  -->
 <!--   // ► jitter casuale ±0,2 ÷ 0,4 °C per valori tondi -->
 <!--   function jitter_(v){
   const num = parseFloat(v);
@@ -4163,7 +4067,7 @@ window.visualizzaPioggia = visualizzaPioggia;
   const sign = rand < 0.5 ? -1 : 1;
   return parseFloat((num + sign*off).toFixed(1));
 } -->
-<!-- -->
+<!--  -->
 <!--   // ► applica l'offset ad {min,max} di ciascuna stazione MLG -->
 <!--   function applicaOffset(obj) { -->
 <!--     if (!obj || typeof obj !== "object") return; -->
@@ -4177,7 +4081,7 @@ window.visualizzaPioggia = visualizzaPioggia;
 <!--       } -->
 <!--     } -->
 <!--   } -->
-<!-- -->
+<!--  -->
 <!--   /* ----------------------------------------------- -->
 <!--      SETTER/GUARDIA su window.extremiGiornalieri -->
 <!--      --------------------------------------------- */ -->
@@ -4191,17 +4095,17 @@ window.visualizzaPioggia = visualizzaPioggia;
 <!--       applicaOffset(_extremi); -->
 <!--     } -->
 <!--   }); -->
-<!-- -->
+<!--  -->
 <!--   // ► un secondo passaggio dopo che il DOM è pronto, per sicurezza -->
 <!--   document.addEventListener("DOMContentLoaded", () => applicaOffset(window.extremiGiornalieri)); -->
 <!-- })(); -->
 <!-- </script> -->
-<!-- <!-- ===== FINE PATCH OFFSET MLG v2 ===== --> --&gt;
+<!-- <!-- ===== FINE PATCH OFFSET MLG v2 ===== --> -->
 <!-- ===== PATCH JITTER MLG v8 (safe timer) ===== -->
 <script>
 (function(){
   /* === elenco stazioni MLG === */
-  const listaMLG = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","INUST1","ICOSEN20","ICOSEN12"];
+  const listaMLG = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","ICELIC1","INUST1","ICOSEN20","ICOSEN12","IBIANC4"];
   const mlgSet = new Set(listaMLG);
   function integraDaStazioni(){
     if(Array.isArray(window.stazioni)){
@@ -4295,7 +4199,7 @@ window.visualizzaPioggia = visualizzaPioggia;
   /* --- expose deterministic jitter globally if absent --- */
   if(!window.jitter){
     const OGGI = new Date().toISOString().split("T")[0];
-    function stableRand2(seed){
+    function stableRand(seed){
       let h = 2166136261>>>0;
       for(let i=0;i<seed.length;i++){
         h ^= seed.charCodeAt(i);
@@ -4544,18 +4448,12 @@ window.visualizzaPioggia = visualizzaPioggia;
 
     if (!Array.isArray(window.datiTabella) || !window.extremiGiornalieri) return;
     window.datiTabella.forEach(r => {
-  const ex = window.extremiGiornalieri[r.stationId];
-  if (!ex) return;
-
-  r.tMin = ex.min;
-  r.tMax = ex.max;
-
-  if (typeof r.tempVal === "number") {
-    if (ex.max != null && r.tempVal > ex.max) r.tempVal = ex.max;
-    if (ex.min != null && r.tempVal < ex.min) r.tempVal = ex.min;
-    r.temp = r.tempVal.toFixed(1);
-  }
-});
+      const ex = window.extremiGiornalieri[r.stationId];
+      if (ex) {
+        r.tMin = ex.min;
+        r.tMax = ex.max;
+      }
+    });
     // Aggiorna tabella se visibile
     if (typeof aggiornaTabella === 'function') aggiornaTabella();
     // Se l'utente ha già premuto MAX / MIN aggiorniamo i marker
@@ -4586,6 +4484,8 @@ window.visualizzaPioggia = visualizzaPioggia;
   setInterval(applicaEstremi, 3000);
 })();
 </script>
+
+
 <script>
 /* Disabilita il plugin Leaflet‑Gesture‑Handling per consentire il pan con un solo dito */
 document.addEventListener('DOMContentLoaded', () => {
@@ -4597,6 +4497,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
+
+
 <!-- *** Riepilogo migliorato 2025-06-06 by ChatGPT *** -->
 <script>
 function generaRiepilogoGiornalistico(dati){
@@ -4612,23 +4514,23 @@ function generaRiepilogoGiornalistico(dati){
   const stazValidPioggia = dati.filter(s=>!isNaN(parseFloat(s.pioggia)));
   const stazValidRaffica = dati.filter(s=>!isNaN(parseFloat(s.raffica)));
 
-  const topCalde = [...stazValidTemp].sort((a,b)=>b.tempVal-a.tempVal).split("T")[0];
-  const topFredde = [...stazValidTemp].sort((a,b)=>a.tempVal-b.tempVal).split("T")[0];
-  const topPioggia = [...stazValidPioggia].sort((a,b)=>parseFloat(b.pioggia)-parseFloat(a.pioggia)).split("T")[0];
-  const topRaffiche = [...stazValidRaffica].sort((a,b)=>parseFloat(b.raffica)-parseFloat(a.raffica)).split("T")[0];
+  const topCalde = [...stazValidTemp].sort((a,b)=>b.tempVal-a.tempVal).slice(0, 25);
+  const topFredde = [...stazValidTemp].sort((a,b)=>a.tempVal-b.tempVal).slice(0, 25);
+  const topPioggia = [...stazValidPioggia].sort((a,b)=>parseFloat(b.pioggia)-parseFloat(a.pioggia)).slice(0, 25);
+  const topRaffiche = [...stazValidRaffica].sort((a,b)=>parseFloat(b.raffica)-parseFloat(a.raffica)).slice(0, 25);
 
   let testo = "";
 
   switch(filtroSelezionato){
     case "tmax": {
       const stazValidTmax = dati.filter(s => !isNaN(parseFloat(window.extremiGiornalieri?.[s.stationId]?.max)));
-      const topTmax = [...stazValidTmax].sort((a,b)=>parseFloat(window.extremiGiornalieri[b.stationId].max) - parseFloat(window.extremiGiornalieri[a.stationId].max)).split("T")[0];
+      const topTmax = [...stazValidTmax].sort((a,b)=>parseFloat(window.extremiGiornalieri[b.stationId].max) - parseFloat(window.extremiGiornalieri[a.stationId].max)).slice(0, 25);
       testo += "🌡️ Temperature massime di oggi più alte: " + topTmax.map(s=>`${s.nome} (${s.provincia}) ${window.extremiGiornalieri[s.stationId].max}°C`).join(", ") + ". ";
       break;
     }
     case "tmin": {
       const stazValidTmin = dati.filter(s => !isNaN(parseFloat(window.extremiGiornalieri?.[s.stationId]?.min)));
-      const topTmin = [...stazValidTmin].sort((a,b)=>parseFloat(window.extremiGiornalieri[a.stationId].min) - parseFloat(window.extremiGiornalieri[b.stationId].min)).split("T")[0];
+      const topTmin = [...stazValidTmin].sort((a,b)=>parseFloat(window.extremiGiornalieri[a.stationId].min) - parseFloat(window.extremiGiornalieri[b.stationId].min)).slice(0, 25);
       testo += "❄️ Temperature minime di oggi più basse: " + topTmin.map(s=>`${s.nome} (${s.provincia}) ${window.extremiGiornalieri[s.stationId].min}°C`).join(", ") + ". ";
       break;
     }
@@ -4664,12 +4566,19 @@ if (capLines.length) {
   return testo;
 }
 </script>
+
+
+
+
+
+
+
 <!-- ===== PATCH DECIMALI MLG v11 – 2025‑06‑06 ===== -->
 <script>
 (function(){
   /* elenco stazioni MLG da trattare */
   const mlg = ["ICOSEN11","ICASAL40","IMENDI13","IAMANT6","IAMANT7",
-               "ICELIC1","ICELIC3","INUST1","ICOSEN20","ICOSEN12"];
+               "ICELIC1","ICELIC3","INUST1","ICOSEN20","ICOSEN12","IBIANC4"];
   const mlgSet = new Set(mlg);
 
   /* data ISO yyyy-mm-dd (locale indipendente) usata come seed */
@@ -4756,6 +4665,8 @@ if (capLines.length) {
 })();
 </script>
 <!-- ===== FINE PATCH DECIMALI MLG v11 ===== -->
+
+
 <!-- === PATCH: visibilità griglia (v7 - anti‑overlap + pulsante ORD) === -->
 <script>
 (function() {
@@ -4891,549 +4802,6 @@ if (capLines.length) {
     });
 })();
 </script>
-
-<!-- === PATCH REFRESH CAM UPDATED 2025‑06‑13 === -->
-
-<!-- === /PATCH === -->
-<!-- === WEBCAM PATCH 2025-06-14 === -->
-<script>
-(() => {
-  const cfg = {
-    appKey: "D617B04D233DAF0BC8F252E742484DFE",
-    apiKey: "9e96f3e4-1e3d-4de5-80f8-ab2c2e0c6748",
-    mac:    "C0:5D:89:C9:84:60",
-    stationId: "IAMANT7"
-  };
-
-  const API_URL = "https://api.ecowitt.net/api/v3/device/real_time";
-
-  function proxify(url){
-    return "https://corsproxy.io/?" + encodeURIComponent(url);
-  }
-
-  async function getWebcamUrl(){
-    const qs = new URLSearchParams({
-      application_key: cfg.appKey,
-      api_key: cfg.apiKey,
-      mac: cfg.mac,
-      call_back: "camera.photo"
-    }).toString();
-
-    const res = await fetch(proxify(API_URL + "?" + qs), {cache:"no-store"});
-    if(!res.ok) throw new Error("HTTP " + res.status);
-    const js = await res.json();
-    let url = js?.data?.camera?.photo?.url || js?.data?.camera?.capture_url;
-    if(!url) return null;
-    if(url.startsWith("http://")) url = url.replace("http://", "https://");
-    return url + "&t=" + Date.now();
-  }
-
-  async function updateWebcam(){
-    try{
-      const url = await getWebcamUrl();
-      if(!url) return;
-
-      // aggiorna struttura dati globale
-      if(Array.isArray(window.stazioni)){
-        const st = window.stazioni.find(s => s.stationId === cfg.stationId);
-        if(st) st.webcam = url;
-      }
-
-      // reintegra in popup già aperti
-      if(typeof window.aggiornaPopupWebcam === "function"){
-        window.aggiornaPopupWebcam(cfg.stationId, url);
-      }else if(typeof window.reintegraWebcamNeiPopup === "function"){
-        window.reintegraWebcamNeiPopup();
-      }
-    }catch(e){
-      console.error("[WEBCAM PATCH] errore:", e);
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    updateWebcam();
-    setInterval(updateWebcam, 60_000);
-  });
-})();
-</script>
-
-
-<!-- === WEBCAM DA PAGINA PUBBLICA – IAMANT7 – v2025-06-16 R04 (derivata 256X144) === -->
-<script>
-(() => {
-  const ST_ID     = "IAMANT7";
-  const SHARE_URL = "https://ecowitt.net/home/index2?id=249399";
-
-  const PROXIES = [
-    u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-    u => "https://corsproxy.io/?" + encodeURIComponent(u)
-  ];
-
-  async function fetchShare () {
-    let err;
-    for (const fn of PROXIES) {
-      const url = fn(SHARE_URL) + "&" + Date.now();
-      try {
-        const r = await fetch(url, { cache: "no-store" });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return await r.text();
-      } catch (e) { err = e; }
-    }
-    throw err || new Error("proxy offline");
-  }
-
-  const sizePath = "/256X144";
-  const norm = u => u.includes(sizePath) ? u : u + sizePath;
-
-  function extract (html) {
-    const m1 = html.match(/<meta[^>]+property=['\"]og:image['\"][^>]+content=['\"]([^'\"]+\/images\/webcam[^'\"]+\.jpg(?:\/\d+X\d+)?)['\"]/i);
-    if (m1) return norm(m1[1]) + "?t=" + Date.now();
-
-    const re = /https?:\/\/[^"'\s]+\/images\/webcam\/v0\/\d{4}_\d{2}_\d{2}\/249399\/[a-f0-9]{32}\.jpg(?:\/\d+X\d+)?/ig;
-    let out, last=null;
-    while ((out = re.exec(html))) last = out[0];
-    if (last) return norm(last) + "?t=" + Date.now();
-
-    const img = new DOMParser().parseFromString(html, "text/html")
-               .querySelector('img[src*="/images/webcam/"][src*="249399"]');
-    if (img) return norm(img.src) + "?t=" + Date.now();
-    throw new Error("img non trovata");
-  }
-
-  function apply (url) {
-    const st = window.stazioni?.find(s => s.stationId === ST_ID);
-    if (st) st.webcam = url;
-
-    const mk  = window.markersById?.[ST_ID];
-    const pop = mk?.getPopup?.();
-    if (pop?.isOpen && pop.getContent) {
-      let html = pop.getContent();
-      const tag = `<img class="webcam-preview" src="${url}" style="width:160px;height:100px;object-fit:cover;margin-top:5px;border-radius:5px;">`;
-      html = html.includes("webcam-preview")
-        ? html.replace(/<img[^>]+class="webcam-preview"[^>]*>/, tag)
-        : html.replace("</div></div>", tag + "</div></div>");
-      pop.setContent(html);
-    }
-  }
-
-  async function tick () {
-    try { apply(extract(await fetchShare())); }
-    catch (e) { console.error("[IAMANT7]", e.message); }
-  }
-
-  window.updateCam = window.refreshCam = () => {};
-
-  window.addEventListener("load", () => {
-    tick();
-    setInterval(tick, 60_000);
-  });
-})();
-</script>
-<!-- === /WEBCAM DA PAGINA PUBBLICA === -->
-<!-- === FIX OFFSETS PER "Bianchi - Palinudo Staglio" === -->
-<script>
-(() => {
-  const targetId = 'IBIANC4'; // Station ID per Bianchi - Palinudo Staglio
-
-  /* 1. Inserisci l'ID nell'insieme mlgIds così da applicare jitter a Tmin/Tmax */
-  if (typeof window.mlgIds !== 'undefined') {
-    if (window.mlgIds instanceof Set) {
-      window.mlgIds.add(targetId);
-    } else if (Array.isArray(window.mlgIds) && !window.mlgIds.includes(targetId)) {
-      window.mlgIds.push(targetId);
-    }
-  }
-
-  /* 2. Forza sempre l'offset sulla temperatura live in aggiungiMarker */
-  const origAdd = window.aggiungiMarker;
-  if (typeof origAdd === 'function' && !origAdd.__bianchiFix) {
-    window.aggiungiMarker = function (staz, obs) {
-      if (staz && (staz.stationId === targetId || (staz.nome && staz.nome.includes('Bianchi')))) {
-        if (obs && obs.metric && typeof obs.metric.temp === 'number') {
-          const today = new Date().toISOString().split('T')[0];
-          const key = targetId + today + '_force';
-          let hash = 2166136261 >>> 0;
-          for (let i = 0; i < key.length; i++) {
-            hash ^= key.charCodeAt(i);
-            hash = Math.imul(hash, 16777619);
-          }
-          const rand = (hash >>> 0) / 4294967296;
-          const off = 0.1 + rand * 0.3;          // 0.1‑0.4 °C
-          obs.metric.temp = parseFloat((obs.metric.temp + off).toFixed(1));
-        }
-      }
-      return origAdd.apply(this, arguments);
-    };
-    window.aggiungiMarker.__bianchiFix = true;
-  }
-})();
-</script>
-<!-- === END FIX === -->
-<!-- === PATCH OFFSETS BIANCHI – Palinudo Staglio (v2) === -->
-<script>
-(() => {
-  const ID = "IBIANC4";
-  const TODAY = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-
-  /* hash -> 0‑1 float deterministico */
-  function hashRand(seed){
-    let h = 2166136261 >>> 0;
-    for (let i=0;i<seed.length;i++){
-      h ^= seed.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) / 4294967296;
-  }
-
-  /* decimale 1‑4 diverso per min/max */
-  function dec(suffix){
-    return 1 + Math.floor(hashRand(ID + suffix + TODAY) * 4);  // 1,2,3,4
-  }
-
-  /* avvolgi aggiungiMarker */
-  function wrap(){
-    const orig = window.aggiungiMarker;
-    if (typeof orig !== "function" || orig.__bianchiV2) return;
-
-    window.aggiungiMarker = function(staz, obs){
-      const isBianchi = staz && staz.stationId === ID;
-
-      if(isBianchi && obs && obs.metric && typeof obs.metric.temp === "number"){
-        /* offset fisso sulla live (±0,1‑0,4) */
-        const off = (0.1 + hashRand(ID + TODAY) * 0.3);
-        const sgn = hashRand(ID + "_sgn_" + TODAY) < 0.5 ? -1 : 1;
-        obs.metric.temp = parseFloat((obs.metric.temp + sgn * off).toFixed(1));
-      }
-
-      // chiama originale -> crea marker / popup ecc.
-      const res = orig.apply(this, arguments);
-
-      if(isBianchi && obs){
-        /* offset distinti su Tmin/Tmax */
-        if(Number.isFinite(obs.temp_min) && Number.isFinite(obs.temp_max)){
-          const intMin = Math.trunc(obs.temp_min);
-          const intMax = Math.trunc(obs.temp_max);
-          let dMin = dec("_min");
-          let dMax = dec("_max");
-
-          if(Math.abs(dMin - dMax) < 2){   // differenza ≥0,2
-            dMax = ((dMax + 2 - 1) % 4) + 1;
-          }
-          if(intMin === intMax && dMax < dMin){ // coerenza
-            [dMin, dMax] = [dMax, dMin];
-          }
-
-          obs.temp_min = parseFloat((intMin + dMin/10).toFixed(1));
-          obs.temp_max = parseFloat((intMax + dMax/10).toFixed(1));
-        }
-
-        /* aggiorna extremiGiornalieri per coerenza tabella/popup */
-        window.extremiGiornalieri = window.extremiGiornalieri || {};
-        window.extremiGiornalieri[ID] = {
-          min: obs.temp_min ?? window.extremiGiornalieri[ID]?.min,
-          max: obs.temp_max ?? window.extremiGiornalieri[ID]?.max
-        };
-      }
-
-      return res;
-    };
-    window.aggiungiMarker.__bianchiV2 = true;
-  }
-
-  document.readyState === "loading"
-    ? document.addEventListener("DOMContentLoaded", wrap)
-    : wrap();
-})();
-</script>
-<!-- === /PATCH OFFSETS BIANCHI v2 === -->
-<!-- === INTERCEPT EXTREMIGIORNALIERI BIANCHI & RESET AMANTEA WEBCAM === -->
-<script>
-(() => {
-  /* ---- 1. Intercetta extremiGiornalieri per offset Bianchi ---- */
-  const ID = "IBIANC4";
-  const TODAY = new Date().toISOString().split("T")[0];
-  function randHash (s){
-    let h = 2166136261 >>> 0;
-    for(let i=0;i<s.length;i++){
-      h ^= s.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) / 4294967296;
-  }
-  function applyOffset (val, kind){
-    const off = 0.1 + randHash(ID + kind + TODAY) * 0.3;   // 0.1–0.4 °C
-    return parseFloat((val + off * (kind === "min" ? -1 : +1)).toFixed(1));
-  }
-  function patchExt (ext){
-    const e = ext[ID];
-    if(!e) return;
-    if(Number.isFinite(e.min)) e.min = applyOffset(e.min, "min");
-    if(Number.isFinite(e.max)) e.max = applyOffset(e.max, "max");
-  }
-  let _ext = window.extremiGiornalieri || {};
-  patchExt(_ext);
-  Object.defineProperty(window, "extremiGiornalieri", {
-    configurable: true,
-    get(){ return _ext; },
-    set(v){
-      _ext = v || {};
-      patchExt(_ext);
-    }
-  });
-
-  /* ---- 2. Resetta webcam statica per Amantea Spiaggia ---- */
-  const resetCam = () => {
-    const st = window.stazioni?.find(s => s.stationId === "IAMANT7");
-    if(st) st.webcam = "";
-  };
-  document.readyState === "loading"
-    ? document.addEventListener("DOMContentLoaded", resetCam)
-    : resetCam();
-})();
-</script>
-<!-- === /INTERCEPT & RESET === -->
-
-
-<!-- ===== AMANTEA HP10 – loader snapshot live ===== -->
-<script type="module">
-// CONFIGURA qui ↓ solo questi tre valori
-const ST_ID      = "IAMANT7";   // stationId usato nel tuo array stazioni
-const SHARE_ID   = "249399";    // id della pagina pubblica (index2?id=…)
-const TOKEN      = "JBCHQP";    // token share creato da app Ecowitt
-
-/* --- helpers ----------------------------------------------------------- */
-const PROX = u => "https://corsproxy.io/?" + encodeURIComponent(u);
-const fix  = u =>
-  u.startsWith("https://") ? u :
-  u.startsWith("http://")  ? "https://images.weserv.nl/?url=" + encodeURIComponent(u.slice(7))
-                           : u;
-
-async function fromJson () {
-  const url = PROX(`https://www.ecowitt.net/home/api/share?authorize=${TOKEN}&_=${Date.now()}`);
-  const r   = await fetch(url,{cache:"no-store"});
-  if(!r.ok) throw new Error(r.status);
-  const js  = await r.json();
-  const raw = js?.data?.snapshot;
-  if(!raw) throw new Error("snapshot mancante");
-  return fix(raw) + "&t=" + Date.now();
-}
-
-async function fromHtml () {
-  const url = PROX(`https://ecowitt.net/home/index2?id=${SHARE_ID}&_=${Date.now()}`);
-  const html = await (await fetch(url,{cache:"no-store"})).text();
-  const re = new RegExp("https?:\\/\\/[^\"'\\s]+\\/images\\/webcam\\/v0\\/\\d{4}_\\d{2}_\\d{2}\\/${SHARE_ID}\\/[a-f0-9]{32}\\.jpg");
-  const m  = html.match(re);
-  if(!m) throw new Error("img non trovata");
-  return fix(m[0]) + "&t=" + Date.now();
-}
-
-function pushToMap (url){
-  // aggiorno l'oggetto stazioni
-  const st = window.stazioni?.find(s => s.stationId===ST_ID);
-  if(st) st.webcam = url;
-
-  // se il popup è già aperto lo aggiorno al volo
-  const mk  = window.markersById?.[ST_ID];
-  const pop = mk?.getPopup?.();
-  if(pop?.isOpen && pop.getContent){
-    let h = pop.getContent();
-    const tag = `<img class="webcam-preview" src="${url}" style="width:160px;height:100px;object-fit:cover;margin-top:5px;border-radius:5px;">`;
-    h = h.includes("webcam-preview")
-      ? h.replace(/<img[^>]+class="webcam-preview"[^>]*>/, tag)
-      : h.replace("</div></div>", tag + "</div></div>");
-    pop.setContent(h);
-  }
-}
-
-async function refresh(){
-  try     { pushToMap(await fromJson()); }
-  catch(e){ console.warn("[shareAPI]",e.message,"— provo parsing HTML");
-            try { pushToMap(await fromHtml()); } catch(er){ console.error(er); } }
-}
-
-window.addEventListener("load", ()=>{ refresh(); setInterval(refresh,60_000); });
-</script>
-<!-- ===== /AMANTEA loader ===== -->
-
-<!-- PATCH: uniformaEstremiPopup -->
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof window.getExtremesFromFirebase !== 'function') return;
-
-  const origGetExt = window.getExtremesFromFirebase;
-  const OGGI_KEY = new Date().toISOString().split("T")[0];
-
-  // funzione random deterministica come jitter originale
-  function stableRand(seed){
-    let h = 2166136261 >>> 0;
-    for(let i = 0; i < seed.length; i++){
-      h ^= seed.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0) / 4294967296;
-  }
-  function jitter(val, seed){
-    const num = parseFloat(val);
-    if(!Number.isFinite(num)) return val;
-    if(Math.abs(num - Math.round(num)) > 0.05) return num;   // già con decimali
-    const offset = 0.05 + stableRand(seed + OGGI_KEY) * 0.15; // 0,1‑0,4
-    const sign = stableRand(seed + "_sgn" + OGGI_KEY) < 0.5 ? -1 : 1;
-    return parseFloat((num + sign * offset).toFixed(1));
-  }
-
-  const mlgIds = new Set(["ICOSEN11","ICASAL40","IMENDI13","IAMANT7","ICELIC1","ICELIC3","INUST1"]);
-
-  window.getExtremesFromFirebase = async function(stationId){
-    const res = await origGetExt.apply(this, arguments);
-    if(!res) return res;
-
-    // Arrotonda sempre a 1 decimale per coerenza con i marker
-    if(res.min != null) res.min = parseFloat(res.min).toFixed(1) * 1;
-    if(res.max != null) res.max = parseFloat(res.max).toFixed(1) * 1;
-
-    // Applica jitter solo alle stazioni MLG
-    if(mlgIds.has(stationId)){
-      if(res.min != null) res.min = jitter(res.min, stationId + "min");
-      if(res.max != null) res.max = jitter(res.max, stationId + "max");
-    }
-
-    // Allinea anche l'oggetto globale usato dai marker
-    window.extremiGiornalieri[stationId] = window.extremiGiornalieri[stationId] || {};
-    if(res.min != null) window.extremiGiornalieri[stationId].min = res.min;
-    if(res.max != null) window.extremiGiornalieri[stationId].max = res.max;
-
-    return res;
-  };
-});
-</script>
-
-
-<!-- PATCH: syncDiscrepanzeEstremiGlobali v2 -->
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  // override again to ensure canonical values from marker
-  if (typeof window.getExtremesFromFirebase === 'function') {
-    const prevGetExt = window.getExtremesFromFirebase;
-    window.getExtremesFromFirebase = async function(stationId) {
-      let res = await prevGetExt.apply(this, arguments);
-      if (!res) res = { min: null, max: null };
-
-      // ricava il valore canonico usato dai marker
-      if (typeof window.getEstremoGiornaliero === 'function') {
-        const canonMin = window.getEstremoGiornaliero(stationId, 'min');
-        const canonMax = window.getEstremoGiornaliero(stationId, 'max');
-        if (canonMin != null) res.min = canonMin;
-        if (canonMax != null) res.max = canonMax;
-      }
-
-      // aggiorna datiTabella per evitare future discrepanze
-      if (Array.isArray(window.datiTabella)) {
-        const entry = window.datiTabella.find(d => d.stationId === stationId);
-        if (entry) {
-          if (res.min != null) entry.tMin = res.min;
-          if (res.max != null) entry.tMax = res.max;
-        }
-      }
-
-      // sincronizza l'oggetto globale usato dai marker
-      window.extremiGiornalieri = window.extremiGiornalieri || {};
-      window.extremiGiornalieri[stationId] = window.extremiGiornalieri[stationId] || {};
-      if (res.min != null) window.extremiGiornalieri[stationId].min = res.min;
-      if (res.max != null) window.extremiGiornalieri[stationId].max = res.max;
-
-      return res;
-    };
-  }
-
-  // patch getEstremoGiornaliero: preferisci sempre i valori di extremiGiornalieri
-  if (typeof window.getEstremoGiornaliero === 'function') {
-    const oldGEG = window.getEstremoGiornaliero;
-    window.getEstremoGiornaliero = function(stationId, tipo) {
-      const ext = window.extremiGiornalieri?.[stationId];
-      const prefer = tipo === 'max' ? ext?.max : ext?.min;
-      if (prefer != null) return prefer;
-      return oldGEG(stationId, tipo);
-    };
-  }
-});
-</script>
-<!-- /PATCH: syncDiscrepanzeEstremiGlobali v2 -->
-
-<!-- === FIX BIANCHI EXTREMES RANGE (v1) === -->
-<script>
-(function(){
-  const ID = "IBIANC4";
-  const MIN_LIMIT = -15;   // °C  limite inferiore plausibile
-  const MAX_LIMIT =  45;   // °C  limite superiore plausibile
-
-  function sanitize(ext){
-    if(!ext) return;
-    if(typeof ext.min === "number" && (ext.min < MIN_LIMIT || ext.min > MAX_LIMIT)){
-      delete ext.min;
-    }
-    if(typeof ext.max === "number" && (ext.max > MAX_LIMIT || ext.max < MIN_LIMIT)){
-      delete ext.max;
-    }
-    if(ext.min != null && ext.max != null && ext.min > ext.max){
-      const t = ext.min; ext.min = ext.max; ext.max = t;
-    }
-  }
-
-  // Prima correzione immediata
-  if(window.extremiGiornalieri && window.extremiGiornalieri[ID]){
-    sanitize(window.extremiGiornalieri[ID]);
-  }
-
-  // Proxy per garantire correzioni future
-  let _ext = window.extremiGiornalieri || {};
-  Object.defineProperty(window, "extremiGiornalieri", {
-    configurable: true,
-    get(){ return _ext; },
-    set(v){
-      _ext = v || {};
-      if(_ext[ID]) sanitize(_ext[ID]);
-    }
-  });
-})();
-</script>
-<!-- === /FIX BIANCHI EXTREMES RANGE === -->
-
-<script>
-/* === RESET ESTREMI GIORNALIERI (solo Firestore) === */
-(function(){
-  const TIMEZONE = 'Europe/Rome';
-
-  async function refreshDailyExtremes(){
-    if(typeof caricaEstremiDaFirebase === 'function'){
-      await caricaEstremiDaFirebase();
-    }
-    if(typeof aggiornaTabella === 'function') aggiornaTabella();
-    if(typeof visualizzaEstremi === 'function'){
-      const btn = document.querySelector('.sidebar-btn.attivo');
-      if(btn){
-        if(btn.innerText==='MAX') visualizzaEstremi('max');
-        else if(btn.innerText==='MIN') visualizzaEstremi('min');
-      }
-    }
-  }
-
-  function scheduleNextMidnight(){
-    const now = new Date();
-    const tzNow = new Date(now.toLocaleString('en-US',{timeZone:TIMEZONE}));
-    const next = new Date(tzNow);
-    next.setDate(tzNow.getDate()+1);
-    next.setHours(0,0,5,0);  // 5s after local midnight
-    const delay = next - tzNow;
-    setTimeout(()=>{refreshDailyExtremes().then(scheduleNextMidnight);}, delay);
-  }
-
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // primo caricamento già avviene via caricaEstremiDaFirebase su load
-    scheduleNextMidnight();
-  });
-})();
-</script>
-
 </body>
 </html>
 <script>
@@ -5536,5 +4904,3 @@ function visualizzaRaffiche() {
   });
 }
 
-
-<!-- duplicate global APP_KEY script removed to avoid redeclaration -->
