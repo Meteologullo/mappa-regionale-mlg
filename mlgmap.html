@@ -86,7 +86,7 @@ function visualizzaPioggia() {
 async function caricaDatiOpenMeteo() {
   for (const stazione of stazioni.filter(s => s.openMeteo)) {
     try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m`);
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
       const data = await res.json();
       datiTabella.push({
         stationId: stazione.stationId,
@@ -2750,7 +2750,7 @@ let popup = `
   <div class="popup-sub">${staz.provincia} • ${staz.regione} • ${staz.quota} • ${staz.area}</div>
   <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
   <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
-  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${percepita}°C</div>
+  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${staz.percepita ?? "--"}°C</div>
   <div class="popup-data"><span class="bold">Cond. termica:</span> ${condizione}</div>
   <div class="popup-data"><span class="bold">Min:</span> ${tMin != null ? tMin + "°C" : "--"} / <span class="bold">Max:</span> ${tMax != null ? tMax + "°C" : "--"}</div>
   <div class="popup-data"><span class="bold">Vento:</span> ${vento} km/h / <span class="bold">Raffica:</span> ${raffica} km/h</div>
@@ -3795,7 +3795,7 @@ function aggiornaPopupConEstremiFinale() {
       <div class="popup-sub">${[staz.provincia, staz.regione, staz.quota ? `${staz.quota} m` : null, staz.area].filter(v => v && v !== "undefined").join(" • ")}</div>
       <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
       <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
-  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${percepita}°C</div>
+  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${staz.percepita ?? "--"}°C</div>
       <div class="popup-data"><span class="bold">Cond. termica:</span> ${condizione}</div>
       <div class="popup-data"><span class="bold">Min:</span> ${tMin} / <span class="bold">Max:</span> ${tMax}</div>
       <div class="popup-data"><span class="bold">Vento:</span> ${vento} km/h / <span class="bold">Raffica:</span> ${raffica} km/h</div>
@@ -4080,13 +4080,13 @@ async function caricaDatiOpenMeteo() {
   const oggi = new Date().toISOString().split('T')[0];
   for (const stazione of stazioni.filter(s => s.openMeteo)) {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&longitude=${stazione.lon}&daily=precipitation_sum&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
       const res = await fetch(url);
       const data = await res.json();
       console.log("Dati OpenMeteo per", stazione.stationId, data);
       const entry = datiTabella.find(e => e.stationId === stazione.stationId);
       if (entry) {
-        entry.pioggia = data.daily.precipitation_sum[0];
+        entry.pioggia = data.daily?.[0] ?? 0;
       }
     } catch (e) {
       console.error("Errore nel fetch OpenMeteo per", stazione.stationId, e);
@@ -5131,6 +5131,137 @@ if (capLines.length) {
   document.addEventListener('DOMContentLoaded', init);
 })();
 </script>
+
+
+<!-- === Patch WU offset & wind – ChatGPT 2025‑06‑25‑C === -->
+<script id="wu_offset_wind_patch">
+(function(){
+  const today = new Date().toISOString().split("T")[0];
+
+  /* --------------------------------------------------------------------
+     Funzioni di utilità
+     -------------------------------------------------------------------- */
+  /* FNV‑1a usato dallo script originale */
+  function fnvRand(key){
+    let hash = 2166136261 >>> 0;
+    for (let i = 0; i < key.length; i++){
+      hash ^= key.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967296;
+  }
+  /* Offset deterministico 0,1‑0,4 °C */
+  function offset(stationId){
+    const rand = fnvRand(String(stationId||'') + today);
+    return 0.1 + rand * 0.3;
+  }
+  /* Valuta se la stazione è WU */
+  function isWU(staz){
+    return staz && (staz.apiKey || String(staz.stationId||'').startsWith("I") || staz.mlg);
+  }
+
+  /* --------------------------------------------------------------------
+     1) Integrazione VENTO/RAFFICA da Open‑Meteo nell’aggiornamento marker
+     -------------------------------------------------------------------- */
+  const cachedWind = Object.create(null);
+
+  function patchAggiungiMarker(){
+    const orig = window.aggiungiMarker;
+    if(typeof orig !== "function" || orig.__patchedWU) return;
+
+    window.aggiungiMarker = function patched(staz, obs){
+      const wu = isWU(staz);
+
+      /* --- Calcolo offset se manca (rand ≥0.7 nel codice originale) --- */
+      if(wu && obs && obs.metric && typeof obs.metric.temp === "number"){
+        const rand = fnvRand(String(staz.stationId||'') + today);
+        if(rand >= 0.7){       // l'originale non lo applicherà
+          obs.metric.temp += parseFloat(offset(staz.stationId).toFixed(1));
+        }
+      }
+
+      /* --- Vento / raffica Open‑Meteo -------------------------------- */
+      function callOrig(){
+        return orig.call(this, staz, obs);
+      }
+
+      if(!wu || cachedWind[staz.stationId]){
+        return callOrig();
+      }
+
+      cachedWind[staz.stationId] = true;
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${staz.lat}&longitude=${staz.lon}&current=wind_speed_10m,wind_gusts_10m&timezone=UTC`)
+        .then(r => r.json())
+        .then(d => {
+          if(d.current){
+            if(d.current.wind_speed_10m != null) obs.windSpeed = d.current.wind_speed_10m;
+            if(d.current.wind_gusts_10m != null) obs.windGust = d.current.wind_gusts_10m;
+          }
+        })
+        .catch(console.error)
+        .finally(callOrig);
+
+      /* Non chiamiamo subito l'originale: lo faremo nel finally */
+      return;
+    };
+    window.aggiungiMarker.__patchedWU = true;
+  }
+
+  /* --------------------------------------------------------------------
+     2) Patch su datiTabella per qualunque stazione (presente/futura)
+     -------------------------------------------------------------------- */
+  function patchDatiTabella(){
+    if(!Array.isArray(window.datiTabella) || window.datiTabella.__patchedWU) return;
+
+    const tab = window.datiTabella;
+
+    /* Applica/controlla offset su oggetto singolo */
+    function ensure(obj){
+      if(!obj || !isWU(obj)) return;
+
+      const stid = obj.stationId;
+      const rand = fnvRand(String(stid||'') + today);
+      /* Se rand >=0.7 l'originale non ha messo offset: aggiungiamolo ora */
+      if(rand >= 0.7){
+        const off = parseFloat(offset(stid).toFixed(1));
+        if(typeof obj.tempVal === "number"){
+          obj.tempVal = parseFloat((obj.tempVal + off).toFixed(1));
+        }
+        if(typeof obj.temp === "number"){
+          obj.temp = parseFloat((obj.temp + off).toFixed(1));
+        }
+      }
+    }
+
+    /* Patch push per gestire futuri inserimenti */
+    const origPush = tab.push;
+    tab.push = function(...args){
+      args.forEach(ensure);
+      return origPush.apply(this, args);
+    };
+    tab.__patchedWU = true;
+
+    /* Corregge già le righe esistenti */
+    tab.forEach(ensure);
+
+    /* Rinfresca subito la tabella/marker se funzione esiste */
+    if(typeof window.aggiornaTabella === "function"){
+      setTimeout(window.aggiornaTabella, 0);
+    }
+  }
+
+  /* --------------------------------------------------------------------
+     3) Timer di autosicurezza: ogni 3 s assicura patch presente
+     -------------------------------------------------------------------- */
+  function watchdog(){
+     patchAggiungiMarker();
+     patchDatiTabella();
+  }
+  document.addEventListener("DOMContentLoaded", watchdog);
+  setInterval(watchdog, 3000);   // resta resiliente a re‑inizializzazioni
+})();
+</script>
+<!-- === /Patch WU offset & wind === -->
 
 </body>
 </html>
