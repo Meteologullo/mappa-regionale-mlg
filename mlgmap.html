@@ -25,16 +25,24 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  window.getExtremesFromFirebase = async function (stationId) {
+  
+window.getExtremesFromFirebase = async function (stationId) {
     const q = query(collection(db, "osservazioni"), where("stationId", "==", stationId));
     const snapshot = await getDocs(q);
     let min = Infinity, max = -Infinity;
     snapshot.forEach(doc => {
-      const temp = doc.data().temperatura;
-      if (typeof temp === 'number') {
+        const raw = doc.data().temperatura;
+        const temp = (typeof raw === 'number') ? raw : parseFloat(raw);
+        if (!Number.isFinite(temp)) return;
         if (temp < min) min = temp;
         if (temp > max) max = temp;
-      }
+    });
+    return {
+        min: min === Infinity ? null : min,
+        max: max === -Infinity ? null : max
+    };
+};
+
     });
     return {
       min: min === Infinity ? null : min,
@@ -78,7 +86,7 @@ function visualizzaPioggia() {
 async function caricaDatiOpenMeteo() {
   for (const stazione of stazioni.filter(s => s.openMeteo)) {
     try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m`);
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m`);
       const data = await res.json();
       datiTabella.push({
         stationId: stazione.stationId,
@@ -87,6 +95,8 @@ async function caricaDatiOpenMeteo() {
         pioggia: data.current.precipitation,
         umidita: data.current.relativehumidity_2m,
         raffica: data.current.wind_gusts_10m,
+        percepita: (function(){const v = calcolaPercepita(data.current.temperature_2m, data.current.relativehumidity_2m, data.current.wind_speed_10m);return v!=null?v.toFixed(1):"--";})(),
+        percepitaVal: calcolaPercepita(data.current.temperature_2m, data.current.relativehumidity_2m, data.current.wind_speed_10m),
       });
     } catch (e) {
       console.error("Errore nel fetch OpenMeteo per", stazione.stationId, e);
@@ -136,6 +146,22 @@ function visualizzaUmidita() {
       if (el) {
         el.innerHTML = `<span style='color:white;'>${d.umidita}%</span></div>`;
         el.style.backgroundColor = '#0099cc';
+      }
+    }
+  });
+}
+
+
+function visualizzaPercepita() {
+  datiTabella.forEach((d) => {
+    const marker = markersById[d.stationId];
+    if (!isNaN(d.percepitaVal) && marker) {
+      const el = marker.getElement();
+      if (el) {
+        const colore = getColor(d.percepitaVal);
+        const textColor = getTextColorForBackground(colore);
+        el.innerHTML = `<span style='color:${textColor};'>${d.percepita}</span></div>`;
+        el.style.backgroundColor = colore;
       }
     }
   });
@@ -1743,6 +1769,46 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
   display:block;
 }
 </style>
+
+<style id="mobile-popup-shrink">
+/* Popup stazioni: versione compatta per telefoni */
+@media (max-width: 520px){
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip{
+    max-width: 220px;
+    padding: 4px;
+  }
+  .leaflet-popup-content{
+    font-size: 12px !important;
+    line-height: 1.3 !important;
+    margin: 4px 6px !important;
+  }
+  .popup-title{ font-size: 14px !important; }
+  .popup-sub{ font-size: 12px !important; }
+  .popup-data{ font-size: 12px !important; }
+}
+</style>
+
+<style id="mobile-popup-nowrap">
+/* Pop‑up stazioni: no wrap ma dimensione moderata su schermi piccoli */
+@media (max-width: 520px){
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip{
+    width: auto !important;       /* si adatta leggermente al testo */
+    min-width: 220px !important;  /* non più piccolo del default */
+    max-width: 300px !important;  /* resta comunque compatto */
+  }
+  .leaflet-popup-content{
+    overflow-x: auto;             /* se necessario scroll orizzontale */
+  }
+  .popup-title,
+  .popup-sub,
+  .popup-data{
+    white-space: nowrap !important; /* impedisce l'andata a capo */
+  }
+}
+</style>
+
 </head>
 <body>
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
@@ -1755,11 +1821,13 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
 </div>
 <div id="radar-time-label" style="font-size: 13px; color: #111; text-align: center;"></div>
 <!-- Sidebar Meteo -->
+<div id="map-indicator" style="position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:4px 10px;border-radius:6px;font-size:14px;z-index:1003;pointer-events:none;opacity:0;transition:opacity 0.3s;"></div>
 <div id="sidebar">
 <button class="sidebar-btn" onclick="visualizzaAttuali()" style="background-color: #cccccc; color: black;" title="Temp attuale">T°C</button>
 <button class="sidebar-btn" onclick="visualizzaEstremi('max')" style="background-color: #ff4d4d; color: white;" title="Temp max">MAX</button>
 <button class="sidebar-btn" onclick="visualizzaEstremi('min')" style="background-color: #3399ff; color: white;" title="Temp min">MIN</button>
 <button class="sidebar-btn" onclick="visualizzaUmidita()" style="background-color: #66ccff; color: white;" title="Umidità">UR%</button>
+<button class="sidebar-btn" onclick="visualizzaPercepita()" style="background-color: #ff66aa; color: white;" title="Temp. percepita">PERC</button>
 <button class="sidebar-btn" onclick="visualizzaRaffiche()" style="background-color: #ff9933; color: white;" title="Raffiche">RAF</button>
 <button class="sidebar-btn" onclick="visualizzaPioggia()" style="background-color: #3399ff; color: white;" title="Pioggia">MM</button>
 <button class="sidebar-btn" onclick="filtraSoloMLG()" style="background-color: #222; color: white;" title="Solo MLG">MLG</button>
@@ -1986,26 +2054,114 @@ function interpretazioneWeatherCode(code) {
 
 </script>
 <script>
-function calcolaCondizioneTermica(temp, umidita) {
-  if (isNaN(temp) || isNaN(umidita)) return "-";
-  let condizione = "";
-  if (temp <= -10) condizione = "Gelo intenso";
-  else if (temp <= -5) condizione = "Gelo";
-  else if (temp <= 0) condizione = "Freddo intenso";
-  else if (temp <= 5) condizione = "Freddo";
-  else if (temp <= 15) condizione = "Fresco";
-  else if (temp <= 22) condizione = "Confortevole";
-  else if (temp <= 26) condizione = "Molto confortevole";
-  else if (temp <= 29) condizione = "Tiepido";
-  else if (temp <= 33) condizione = "Caldo";
-  else if (temp <= 37) condizione = "Caldo intenso";
-  else if (temp <= 42) condizione = "Caldo estremo";
-  else condizione = "Estremo";
-  if (umidita < 30) condizione += " secco";
-  else if (umidita >= 60 && umidita <= 89) condizione += " umido";
-  else if (umidita >= 90) condizione += " molto umido";
-  return condizione;
+
+
+function calcolaDewPoint(T, RH) {
+  if (isNaN(T) || isNaN(RH) || RH <= 0) return null;
+  // Magnus formula
+  const a = 17.27;
+  const b = 237.7;
+  const alpha = Math.log(RH/100) + (a * T) / (b + T);
+  return (b * alpha) / (a - alpha);
 }
+
+function calcolaHumidex(T, RH) {
+  if (isNaN(T) || isNaN(RH)) return null;
+  const Td = calcolaDewPoint(T, RH);
+  if (Td === null) return null;
+  const e = 6.11 * Math.exp(5417.7530 * (1/273.15 - 1/(273.15 + Td)));
+  return parseFloat((T + 0.5555 * (e - 10)).toFixed(1));
+}
+
+function calcolaHeatIndex_C(T, R) {
+  if (isNaN(T) || isNaN(R)) return null;
+  if (T < 10) return T; // per temperature basse restituiamo la temperatura reale
+  const hi = -8.784695 + 1.61139411*T + 2.338549*R - 0.14611605*T*R - 0.012308094*T*T - 0.016424828*R*R + 0.002211732*T*T*R + 0.00072546*T*R*R - 0.000003582*T*T*R*R;
+  return parseFloat(hi.toFixed(1));
+}
+
+
+
+/**
+ * Wind‑Chill (°C) – formula NOAA valida per T ≤ 10 °C e vento ≥ 4,8 km/h.
+ * T: temperatura in °C, V: velocità del vento in km/h
+ */
+function calcolaWindChill_C(T, V) {
+  if (isNaN(T) || isNaN(V)) return T;
+  if (T > 10 || V < 4.8) return parseFloat(T.toFixed(1));
+  const wc = 13.12 + 0.6215 * T - 11.37 * Math.pow(V, 0.16) + 0.3965 * T * Math.pow(V, 0.16);
+  return parseFloat(wc.toFixed(1));
+}
+
+
+function calcolaPercepita(T, RH, V) {
+  if (isNaN(T)) return null;
+  V = (typeof V === 'number' && !isNaN(V)) ? V : 0;
+
+  // Temperature inferiori a 18 °C: consideriamo il vento (Wind‑Chill)
+  if (T < 18) {
+    return calcolaWindChill_C(T, V);
+  }
+
+  // Sopra usiamo l’Heat‑Index (afa)
+  return calcolaHeatIndex_C(T, RH);
+}
+
+
+
+
+
+function calcolaCondizioneTermica (temp, umidita, percepita) {
+  if (isNaN(temp) || isNaN(umidita)) return "-";
+
+  /* --------------------
+   * 1. Descrizione base (solo temperatura)
+   * -------------------- */
+  let base;
+  if (temp <= -10)       base = "Gelo intenso";
+  else if (temp <= -5)   base = "Gelo";
+  else if (temp <= 0)    base = "Freddo intenso";
+  else if (temp <= 5)    base = "Freddo";
+  else if (temp <= 15)   base = "Fresco";
+  else if (temp <= 22)   base = "Gradevole";
+  else if (temp <= 26)   base = "Molto gradevole";
+  else if (temp <= 29)   base = "Tiepido";
+  else if (temp <= 33)   base = "Caldo";
+  else if (temp <= 37)   base = "Caldo intenso";
+  else if (temp <= 42)   base = "Caldo estremo";
+  else                   base = "Estremo";
+
+  /* --------------------
+   * 2. Modificatore legato a umidità / percezione
+   * -------------------- */
+  const diff = (!isNaN(percepita) ? percepita - temp : 0);
+  let mod = "";
+
+  if (temp >= 26) {  // situazioni calde
+    if (umidita >= 70 || diff >= 7)       mod = "molto afoso";
+    else if (umidita >= 60 || diff >= 4)  mod = "afoso";
+  } else {            // situazioni fresche
+    if (umidita < 30)                     mod = "secco";
+    else if (umidita >= 60 && umidita <= 89) mod = "umido";
+    else if (umidita >= 90)               mod = "molto umido";
+  }
+
+  // Se non c'è alcun modificatore (umidità neutra) restituiamo solo la base
+  if (!mod) return base;
+
+  /* --------------------
+   * 3. Eliminazione ridondanze ("molto" ripetuto)
+   * -------------------- */
+  if (/^molto\b/i.test(base) && /^molto\b/i.test(mod)) {
+    mod = mod.replace(/^molto\s+/i, "");
+  }
+
+  /* --------------------
+   * 4. Composizione finale
+   * -------------------- */
+  return `${base} e ${mod}`;
+}
+
 
 const stazioni = [
   { nome: "Bianchi - Palinudo Staglio", mlg: true, lat: 39.11, lon: 16.42, quota: "830 m", provincia: "CS", regione: "Calabria", area: "Valle del Corace", stationId: "IBIANC4", apiKey: "2ccb91c2398a4f778b91c2398a4f772f", webcam: "", linkStazione: "https://esempio.it/stazioni/nuova-stazione-1" },
@@ -2045,9 +2201,7 @@ const stazioni = [
   { nome: "Badolato Marina", lat: 38.6, lon: 16.55, quota: "10 m", provincia: "CZ", regione: "Calabria", area: "Costa Ionica basso Catanzarese", openMeteo: true, stationId: "BADO_MARINA", webcam: "", linkStazione: "#" },
   { nome: "Delianuova", lat: 38.2, lon: 15.88, quota: "600 m", provincia: "RC", regione: "Calabria", area: "Pre-Aspromonte Occidentale", openMeteo: true, stationId: "DELIANUOVA", webcam: "", linkStazione: "#" },
   {"nome": "Rende", "lat": 39.3306, "lon": 16.2078, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Valle del Crati", "openMeteo": true, "stationId": "RENDE", "webcam": "", "linkStazione": "#"},
-  {"nome": "Montalto Uffugo", "lat": 39.4165, "lon": 16.1985, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Valle del Crati", "openMeteo": true, "stationId": "MONTALTO_UFFUGO", "webcam": "", "linkStazione": "#"},
-  {"nome": "Torano Castello - Sartano", "lat": 39.49, "lon": 16.20, "quota": "90", "provincia": "CS", "regione": "Calabria", "area": "Collina alta Valle del Crati", "openMeteo": true, "stationId": "TORANO_SCALO", "webcam": "", "linkStazione": "#"},
-  {"nome": "Bisignano", "lat": 39.50, "lon": 16.27, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Collina alta Valle del Crati", "openMeteo": true, "stationId": "MONGRASSANO_SCALO", "webcam": "", "linkStazione": "#"},
+  {"nome": "Montalto Uffugo", "lat": 39.4165, "lon": 16.1985, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Valle del Crati", "openMeteo": true, "stationId": "MONTALTO_UFFUGO", "webcam": "", "linkStazione": "#"},{"nome": "Bisignano", "lat": 39.50, "lon": 16.27, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Collina alta Valle del Crati", "openMeteo": true, "stationId": "MONGRASSANO_SCALO", "webcam": "", "linkStazione": "#"},
   {"nome": "Tarsia", "lat": 39.58, "lon": 16.3167, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Valle del Crati", "openMeteo": true, "stationId": "TARSIA", "webcam": "", "linkStazione": "#"},
   {"nome": "Castrovillari", "lat": 39.8167, "lon": 16.2, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Pollino", "openMeteo": true, "stationId": "CASTROVILLARI", "webcam": "", "linkStazione": "#"},
   {"nome": "Sibari", "lat": 39.6833, "lon": 16.5333, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Sibaritide", "openMeteo": true, "stationId": "SIBARI", "webcam": "", "linkStazione": "#"},
@@ -2288,6 +2442,25 @@ const stazioni = [
   { nome: "Dulcino", lat: 39.039, lon: 16.434, quota: "ND", provincia: "CZ", regione: "Calabria", area: "Presila Catanzarese", openMeteo: true, stationId: "DULCINO", webcam: "", linkStazione: "#" },
   { nome: "Filadelfia", lat: 38.818, lon: 16.247, quota: "ND", provincia: "VV", regione: "Calabria", area: "Entroterra Vibonese", openMeteo: true, stationId: "FILADELFIA", webcam: "", linkStazione: "#" },
   { nome: "Olivara", lat: 38.77, lon: 16.21, quota: "ND", provincia: "VV", regione: "Calabria", area: "Costa vibonese", openMeteo: true, stationId: "OLIVARA", webcam: "", linkStazione: "#" }
+,
+  { nome: "Cosenza Diodato", mlg: true, lat: 39.27, lon: 16.26, quota: "500 m", provincia: "CS", regione: "Calabria", area: "Collina Valle del Crati", stationId: "ICOSEN12", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
+  { nome: "Aprigliano Guarno", mlg: true, lat: 39.24, lon: 16.34, quota: "700 m", provincia: "CS", regione: "Calabria", area: "PreSila Grande cosentina", stationId: "IAPRIG9", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
+  
+  { nome: "Campora San Giovanni", lat: 39.07, lon: 16.09, quota: "4 m", provincia: "CS", regione: "Calabria", area: "Basso tirreno cosentino", stationId: "IAMANT5", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
+  { nome: "Catanzaro sud", lat: 38.90, lon: 16.59, quota: "280 m", provincia: "CZ", regione: "Calabria", area: "Istmo di Catanzaro Sud", stationId: "ICATAN51", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
+  { nome: "Crotone centro", lat: 39.08, lon: 17.13, quota: "12 m", provincia: "KR", regione: "Calabria", area: "Costa ionica crotonese", stationId: "ICROTO21", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
+  { nome: "Torano Castello - Scalo", lat: 39.49, lon: 16.21, quota: "89 m", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati", stationId: "IMONTA161", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
+// ---------- SEGUONO ESEMPI DA COMPILARE ----------,
+  { nome: "Belmonte Marina", mlg: true, lat: 39.196082, lon: 16.064474, quota: "8 m", provincia: "CS", regione: "Calabria", area: "Basso tirreno cosentino", stationId: "ILONGO4", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 2", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO2", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 3", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO3", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 4", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO4", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 5", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO5", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 6", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO6", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 7", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO7", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 8", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO8", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 9", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO9", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "Esempio Stazione 10", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO10", apiKey: "", webcam: "", linkStazione: "" }
 ];
 
 let datiTabella = [];
@@ -2548,7 +2721,9 @@ function aggiungiMarker(staz, obs) {
   abilitaToccoProlungato(marker);
   marker.getElement().style.backgroundColor = colore;
 
-  const condizione = calcolaCondizioneTermica(tempVal, parseInt(um));
+  const percepitaVal = calcolaPercepita(tempVal, parseInt(um), parseFloat(vento));
+  const percepita = percepitaVal != null ? percepitaVal.toFixed(1) : "--";
+  const condizione = calcolaCondizioneTermica(tempVal, parseInt(um), percepitaVal);
   datiTabella.push({ stationId: staz.stationId,
     area: staz.area,
     nome: staz.nome,
@@ -2559,6 +2734,8 @@ function aggiungiMarker(staz, obs) {
     pioggia,
     raffica,
     condizione,
+    percepita,
+    percepitaVal,
     orario,
         webcam:       staz.webcam,
         linkStazione: staz.linkStazione,
@@ -2573,12 +2750,12 @@ let popup = `
   <div class="popup-sub">${staz.provincia} • ${staz.regione} • ${staz.quota} • ${staz.area}</div>
   <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
   <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
+  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${percepita}°C</div>
   <div class="popup-data"><span class="bold">Cond. termica:</span> ${condizione}</div>
   <div class="popup-data"><span class="bold">Min:</span> ${tMin != null ? tMin + "°C" : "--"} / <span class="bold">Max:</span> ${tMax != null ? tMax + "°C" : "--"}</div>
   <div class="popup-data"><span class="bold">Vento:</span> ${vento} km/h / <span class="bold">Raffica:</span> ${raffica} km/h</div>
   <div class="popup-data"><span class="bold">Pioggia:</span> ${pioggia} mm</div>
   <div class="popup-data"><span class="bold">Agg.:</span> ${orario} <span style='color:#c00;font-size:11px;margin-left:6px;'>Staz. MLG</span></div>
-  <button class="btn" onclick="apriGrafico('${staz.stationId}')">Grafico temperatura</button>
   <a class="btn" href="${staz.linkStazione}" target="_blank">Pagina della stazione</a>
   ${staz.webcam ? `<iframe src="${staz.webcam}" class="webcam-preview" frameborder="0"></iframe>` : '<div class="webcam-missing">Webcam non disponibile</div>'}
   </div>`;
@@ -2586,6 +2763,7 @@ let popup = `
 
   aggiornaTabella();
   markersById[staz.stationId] = marker;
+  marker.stationId = staz.stationId; // /* stationId patch */
 }
 
 
@@ -2832,7 +3010,7 @@ if (ordFiltro === "tmax" || ordFiltro === "tmin") {
         </div>
         <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; line-height: 1.2;">
           <div style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 4px;">🌡️ ${s.temp}°C</div>
-          <div>💧 ${s.umidita}%</div><div>🔻 ${window.extremiGiornalieri[s.stationId]?.min || "--"}°C / 🔺 ${window.extremiGiornalieri[s.stationId]?.max || "--"}°C</div>
+          <div>💧 ${s.umidita}%</div><div>🥵 ${s.percepita}°C</div><div>🔻 ${window.extremiGiornalieri[s.stationId]?.min || "--"}°C / 🔺 ${window.extremiGiornalieri[s.stationId]?.max || "--"}°C</div>
           <div>💨 ${s.raffica} km/h</div>
           <div><strong>${s.condizione}</strong></div>
           ${filtro === "pioggia" || filtro === "tutti" ? `<div>🌧️ ${s.pioggia} mm</div>` : ""}
@@ -3017,10 +3195,12 @@ function chiudiInfoMappa() {
 
     if (typeof aggiornaTabella === "function") aggiornaTabella();
   markersById[staz.stationId] = marker;
+  marker.stationId = staz.stationId; // /* stationId patch */
     if (typeof aggiornaPopup === "function") aggiornaPopup(); // <-- nuova funzione se serve
 
     if (typeof aggiornaTabella === "function") aggiornaTabella();
   markersById[staz.stationId] = marker;
+  marker.stationId = staz.stationId; // /* stationId patch */
   }
 
   window.addEventListener("load", caricaEstremiDaFirebase);
@@ -3615,12 +3795,12 @@ function aggiornaPopupConEstremiFinale() {
       <div class="popup-sub">${[staz.provincia, staz.regione, staz.quota ? `${staz.quota} m` : null, staz.area].filter(v => v && v !== "undefined").join(" • ")}</div>
       <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
       <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
+  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${percepita}°C</div>
       <div class="popup-data"><span class="bold">Cond. termica:</span> ${condizione}</div>
       <div class="popup-data"><span class="bold">Min:</span> ${tMin} / <span class="bold">Max:</span> ${tMax}</div>
       <div class="popup-data"><span class="bold">Vento:</span> ${vento} km/h / <span class="bold">Raffica:</span> ${raffica} km/h</div>
       <div class="popup-data"><span class="bold">Pioggia:</span> ${pioggia} mm</div>
       <div class="popup-data"><span class="bold">Agg.:</span> ${orario} <span style='color:#c00;font-size:11px;margin-left:6px;'>Staz. MLG</span></div>
-      <button class="btn" onclick="apriGrafico('${staz.stationId}')">Grafico temperatura</button>
       <a class="btn" href="${linkStazione}" target="_blank">Pagina della stazione</a>
       ${webcam ? `<iframe src="${webcam}" class="webcam-preview" frameborder="0"></iframe>` : '<div class="webcam-missing">Webcam non disponibile</div>'}
     `;
@@ -3900,7 +4080,7 @@ async function caricaDatiOpenMeteo() {
   const oggi = new Date().toISOString().split('T')[0];
   for (const stazione of stazioni.filter(s => s.openMeteo)) {
     try {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&daily=precipitation_sum&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&longitude=${stazione.lon}&daily=precipitation_sum&timezone=auto&start_date=${oggi}&end_date=${oggi}`;
       const res = await fetch(url);
       const data = await res.json();
       console.log("Dati OpenMeteo per", stazione.stationId, data);
@@ -4854,6 +5034,101 @@ if (capLines.length) {
       }
     });
   }
+})();
+</script>
+
+
+<script id="indicator_patch">
+(function(){
+  function setIndicator(text){
+    var el = document.getElementById('map-indicator');
+    if(!el){ return; }
+    el.textContent = text;
+    el.style.opacity = '1';
+    clearTimeout(setIndicator.__t);
+    setIndicator.__t = setTimeout(function(){ el.style.opacity = '0'; }, 5000);
+  }
+  function fmt(){
+    var now = new Date();
+    return now.toLocaleDateString('it-IT') + ' ' + now.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit'});
+  }
+  function wrap(name, getText){
+    var orig = window[name];
+    if(typeof orig !== 'function'){ return; }
+    window[name] = function(){
+      orig.apply(this, arguments);
+      setIndicator(getText.apply(this, arguments));
+    };
+  }
+  wrap('visualizzaAttuali', function(){ return 'Temperature in tempo reale'; });
+  wrap('visualizzaUmidita', function(){ return 'Umidità relativa in tempo reale'; });
+  wrap('visualizzaPercepita', function(){ return 'Temperatura percepita'; });
+  wrap('visualizzaRaffiche', function(){ return 'Raffiche di vento (km/h) in tempo reale'; });
+  wrap('visualizzaPioggia', function(){ return 'Pioggia cumulata odierna (mm)'; });
+  // visualizzaEstremi('max'|'min')
+  var origEstremi = window.visualizzaEstremi;
+  if(typeof origEstremi === 'function'){
+    window.visualizzaEstremi = function(tipo){
+      origEstremi.apply(this, arguments);
+      var lb = tipo==='max' ? 'Massime' : 'Minime';
+      setIndicator(lb + ' registrate fino al ' + fmt());
+    };
+  }
+})();
+</script>
+
+
+<script id="extremi_popup_fix">
+(function(){
+  function approxEqualLatLng(a, b){
+    return Math.abs(a.lat - b.lat) < 0.0001 && Math.abs(a.lng - b.lng) < 0.0001;
+  }
+  async function ensureExtremes(popupEl, stationId){
+    if(!stationId || !window.getExtremesFromFirebase) return;
+    if(popupEl.dataset.extremesLoaded === stationId) return;
+    try{
+       const data = await window.getExtremesFromFirebase(stationId);
+       if(!data) return;
+       const {min, max} = data;
+       // Try explicit spans
+       const sMax = popupEl.querySelector('.temp-max');
+       const sMin = popupEl.querySelector('.temp-min');
+       if(sMax) sMax.innerHTML = '<b>Massima:</b> ' + (max!==null ? max.toFixed(1)+'°C' : '--');
+       if(sMin) sMin.innerHTML = '<b>Minima:</b> ' + (min!==null ? min.toFixed(1)+'°C' : '--');
+       // Generic div replacement
+       if(!sMax && !sMin){
+          popupEl.querySelectorAll('.popup-data').forEach(div=>{
+             if(div.textContent.includes('Min:') || div.textContent.includes('Minima:')){
+                 div.innerHTML = '<span class="bold">Min:</span> ' + (min!==null?min.toFixed(1)+'°C':'--') +
+                                 ' / <span class="bold">Max:</span> ' + (max!==null?max.toFixed(1)+'°C':'--');
+             }
+          });
+       }
+       popupEl.dataset.extremesLoaded = stationId;
+    }catch(e){ console.error('extremi_popup_fix', e);}
+  }
+
+  function init(){
+    const leafletMap = window.map || window.mymap;
+    if(!leafletMap){ setTimeout(init, 500); return; }
+
+    leafletMap.on('popupopen', function(e){
+        const popupEl = e.popup._container;
+        if(!popupEl) return;
+        let stationId = popupEl.querySelector('.popup-wrapper')?.getAttribute('data-station-id');
+        if(!stationId && window.markersById){
+            for(const id in window.markersById){
+                const m = window.markersById[id];
+                if(m.getLatLng && approxEqualLatLng(m.getLatLng(), e.popup.getLatLng())){
+                    stationId = id;
+                    break;
+                }
+            }
+        }
+        ensureExtremes(popupEl, stationId);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', init);
 })();
 </script>
 
