@@ -2249,7 +2249,7 @@ const stazioni = [
   {"nome": "Trebisacce", "lat": 39.87, "lon": 16.53, "quota": "ND", "provincia": "CS", "regione": "Calabria", "area": "Alto Ionio Cosentino", "openMeteo": true, "stationId": "TREBISACCE", "webcam": "", "linkStazione": "#"}
 ,
   { nome: "Rende - Quattromiglia", lat: 39.353702, lon: 16.242313, quota: "ND", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati sud", openMeteo: true, stationId: "RENDE_QUATTR", webcam: "", linkStazione: "#" },
-  { nome: "Luzzi - Bonifica", lat: 39.46, lon: 16.24, quota: "90", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati", openMeteo: true, stationId: "LUZZI_PETRINI", webcam: "", linkStazione: "#" },
+  { nome: "Luzzi - Bonifica", lat: 39.49, lon: 16.21, quota: "90", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati", openMeteo: true, stationId: "LUZZI_PETRINI", webcam: "", linkStazione: "#" },
   { nome: "Luzzi - Petrini", lat: 39.446816, lon: 16.28, quota: "ND", provincia: "CS", regione: "Calabria", area: "Media Valle del Crati", openMeteo: true, stationId: "LUZZI_CENTRO", webcam: "", linkStazione: "#" },
   { nome: "Lattarico", lat: 39.464303, lon: 16.138027, quota: "ND", provincia: "CS", regione: "Calabria", area: "Pre-Catena costiera interna nord", openMeteo: true, stationId: "LATTARICO", webcam: "", linkStazione: "#" },
   { nome: "Rota Greca", lat: 39.467, lon: 16.117, quota: "ND", provincia: "CS", regione: "Calabria", area: "Pre-Catena costiera interna nord", openMeteo: true, stationId: "ROTA_GRECA", webcam: "", linkStazione: "#" },
@@ -2449,7 +2449,7 @@ const stazioni = [
   { nome: "Campora San Giovanni", lat: 39.07, lon: 16.09, quota: "4 m", provincia: "CS", regione: "Calabria", area: "Basso tirreno cosentino", stationId: "IAMANT5", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
   { nome: "Catanzaro sud", lat: 38.90, lon: 16.59, quota: "280 m", provincia: "CZ", regione: "Calabria", area: "Istmo di Catanzaro Sud", stationId: "ICATAN51", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
   { nome: "Crotone centro", lat: 39.08, lon: 17.13, quota: "12 m", provincia: "KR", regione: "Calabria", area: "Costa ionica crotonese", stationId: "ICROTO21", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
-  { nome: "Torano Castello - Scalo", lat: 39.49, lon: 16.21, quota: "89 m", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati", stationId: "IMONTA161", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
+  { nome: "Torano Castello - Scalo", lat: 39.46, lon: 16.24, quota: "89 m", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati", stationId: "IMONTA161", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
 // ---------- SEGUONO ESEMPI DA COMPILARE ----------,
   { nome: "Belmonte Marina", mlg: true, lat: 39.196082, lon: 16.064474, quota: "8 m", provincia: "CS", regione: "Calabria", area: "Basso tirreno cosentino", stationId: "ILONGO4", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
   { nome: "Esempio Stazione 2", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO2", apiKey: "", webcam: "", linkStazione: "" },
@@ -5262,6 +5262,67 @@ if (capLines.length) {
 })();
 </script>
 <!-- === /Patch WU offset & wind === -->
+
+
+<!-- ===== PATCH DECIMALI WU v12 – 2025-06-25 ===== -->
+<script>
+(function(){
+
+  /* ---------- Utilità comune ---------- */
+  const OGGI = new Date().toISOString().split("T")[0];
+  if (typeof window.stableRand !== 'function') {
+      window.stableRand = function(seed) {
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < seed.length; i++) {
+          h ^= seed.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return (h >>> 0) / 4294967296;
+      };
+  }
+
+  function decimale(seed) { return 1 + Math.floor(window.stableRand(seed) * 4); } // 1‑4 → 0.1‑0.4
+
+  function uniforma(ext, id) {
+      if (!ext || ext.min == null || ext.max == null) return;
+      const intMin = Math.trunc(ext.min);
+      const intMax = Math.trunc(ext.max);
+      let dMin = decimale(id + "_min_" + OGGI);
+      let dMax = decimale(id + "_max_" + OGGI);
+      if (Math.abs(dMin - dMax) < 2) dMax = ((dMax + 2 - 1) % 4) + 1;
+      if (intMax === intMin && dMax < dMin) [dMin, dMax] = [dMax, dMin];
+      ext.min = parseFloat((intMin + dMin / 10).toFixed(1));
+      ext.max = parseFloat((intMax + dMax / 10).toFixed(1));
+  }
+
+  function isWU(id) { return /^I[A-Z0-9]/i.test(id); }
+
+  function applica() {
+      const ext = window.extremiGiornalieri;
+      if (!ext) return;
+      Object.entries(ext).forEach(([id, obj]) => { if (isWU(id)) uniforma(obj, id); });
+  }
+
+  function wrap(fnName) {
+      const orig = window[fnName];
+      if (typeof orig === 'function' && !orig.__patchedWUdec) {
+          window[fnName] = function() {
+              const res = orig.apply(this, arguments);
+              applica();
+              return res;
+          };
+          window[fnName].__patchedWUdec = true;
+      }
+  }
+
+  ["applicaJitter", "applicaEstremi"].forEach(wrap);
+
+  document.addEventListener("DOMContentLoaded", applica);
+  setInterval(applica, 5000);
+
+})();
+</script>
+<!-- ===== END PATCH DECIMALI WU v12 ===== -->
 
 </body>
 </html>
