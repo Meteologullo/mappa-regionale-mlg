@@ -36,19 +36,6 @@ window.getExtremesFromFirebase = async function (stationId) {
         if (!Number.isFinite(temp)) return;
         if (temp < min) min = temp;
         if (temp > max) max = temp;
-    });
-    return {
-        min: min === Infinity ? null : min,
-        max: max === -Infinity ? null : max
-    };
-};
-
-    });
-    return {
-      min: min === Infinity ? null : min,
-      max: max === -Infinity ? null : max
-    };
-  };
 
 
 function visualizzaPioggia() {
@@ -1809,6 +1796,8 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
 }
 </style>
 
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 </head>
 <body>
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
@@ -2452,12 +2441,12 @@ const stazioni = [
   { nome: "Crotone centro", lat: 39.08, lon: 17.13, quota: "12 m", provincia: "KR", regione: "Calabria", area: "Costa ionica crotonese", stationId: "ICROTO21", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
   { nome: "Torano Castello - Scalo", lat: 39.46, lon: 16.24, quota: "89 m", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati", stationId: "IMONTA161", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "#" },
 // ---------- SEGUONO ESEMPI DA COMPILARE ----------,
-  { nome: "Belmonte Marina", mlg: true, lat: 39.196082, lon: 16.064474, quota: "8 m", provincia: "CS", regione: "Calabria", area: "Basso tirreno cosentino", stationId: "ILONGO4", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
+  { nome: "Longobardi Marina", mlg: true, lat: 39.196082, lon: 16.064474, quota: "8 m", provincia: "CS", regione: "Calabria", area: "Basso tirreno cosentino", stationId: "ILONGO4", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
   { nome: "Cosenza - Viale Parco", mlg: true, lat: 39.32, lon: 16.25, quota: "205 m", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati sud", stationId: "ICOSEN19", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
   { nome: "Rende - Santa Chiara", mlg: true, lat: 39.34, lon: 16.26, quota: "182 m", provincia: "CS", regione: "Calabria", area: "Fondovalle del Crati sud", stationId: "IRENDE25", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
-  { nome: "San Pietro in Guarano Est", mlg: true, lat: 39.34, lon: 16.32, quota: "769 m", provincia: "CS", regione: "Calabria", area: "PreSila Grande cosentina", stationId: "ISANPI41", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
-  { nome: "Esempio Stazione 5", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO5", apiKey: "", webcam: "", linkStazione: "" },
-  { nome: "Esempio Stazione 6", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO6", apiKey: "", webcam: "", linkStazione: "" },
+  { nome: "San Pietro in Guarano Est", mlg: true, lat: 39.34, lon: 16.32, quota: "769 m", provincia: "CS", regione: "Calabria", area: "PreSila Grande", stationId: "ISANPI41", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
+  { nome: "Casali del Manco - Verticelli", mlg: true, lat: 39.28, lon: 16.33, quota: "623 m", provincia: "CS", regione: "Calabria", area: "Bassa preSila Grande", stationId: "ICASAL59", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
+  { nome: "Catanzaro Santa Maria", mlg: true, lat: 38.87, lon: 16.60, quota: "27 m", provincia: "CZ", regione: "Calabria", area: "Istmo di Catanzaro orientale", stationId: "ICATAN48", apiKey: "e1f10a1e78da46f5b10a1e78da96f525", webcam: "", linkStazione: "" },
   { nome: "Esempio Stazione 7", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO7", apiKey: "", webcam: "", linkStazione: "" },
   { nome: "Esempio Stazione 8", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO8", apiKey: "", webcam: "", linkStazione: "" },
   { nome: "Esempio Stazione 9", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO9", apiKey: "", webcam: "", linkStazione: "" },
@@ -3209,141 +3198,11 @@ function chiudiInfoMappa() {
 <!-- Firebase App (the core Firebase SDK) -->
 
 
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBlNQX8Y-REPLACE-WITH-YOURS",
-    authDomain: "meteo-estremami.firebaseapp.com",
-    projectId: "meteo-estremami",
-    storageBucket: "meteo-estremami.appspot.com",
-    messagingSenderId: "108767339113415539553",
-    appId: "1:108767339113415539553:web:dummyappid"
-  };
 
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-
-  const map = L.map('map').setView([38.9, 16.3], 8);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19
-  }).addTo(map);
-
-  db.collection("osservazioni").get().then((querySnapshot) => {
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      const lat = data.latitudine;
-      const lon = data.longitudine;
-      if (lat && lon) {
-        const popupContent = `<div class="popup-wrapper" data-station-id="${data.stationId}">\n
-          <b>Stazione:</b> ${data.stationId || "N/A"}<br>
-          <b>Temperatura:</b> ${data.temperatura || "-"}°C<br>
-          <span class="popup-data temp-max"><b>Massima:</b> ${data.Massima || "-"}°C</span><br>
-          <span class="popup-data temp-min"><b>Minima:</b> ${data.Minima || "-"}°C</span><br>
-          <b>Umidità:</b> ${data.umidita || "-"}%<br>
-          <b>Pioggia:</b> ${data.pioggia || "-"} mm<br>
-          <b>Raffica:</b> ${data.raffica || "-"} km/h<br>
-          <b>Ora:</b> ${new Date(data.timestamp?.seconds * 1000).toLocaleString() || "-"}
-        </div>`;
-        L.marker([lat, lon]).addTo(map).bindPopup(popupContent);
-      }
-    });
-  });
-</script>
 <!-- Firebase compat + Calcolo estremo client-side -->
 
 
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBlNQX8Y-REPLACE-WITH-YOURS",
-  authDomain: "meteo-estremami.firebaseapp.com",
-  projectId: "meteo-estremami"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
 
-window.extremiGiornalieri = {};
-
-function aggiornaTabellaConEstremi() {
-  const righe = document.querySelectorAll("table tbody tr");
-  righe.forEach(row => {
-    const stationId = row.getAttribute("data-stationid");
-    const dati = window.extremiGiornalieri[stationId];
-    if (!dati) return;
-
-    // Aggiunta colonne se mancanti
-    if (!row.querySelector(".col-max")) {
-      const maxCell = document.createElement("td");
-      maxCell.className = "col-max";
-      row.appendChild(maxCell);
-    }
-    if (!row.querySelector(".col-min")) {
-      const minCell = document.createElement("td");
-      minCell.className = "col-min";
-      row.appendChild(minCell);
-    }
-
-    row.querySelector(".col-max").innerText = dati.max.toFixed(1);
-    row.querySelector(".col-min").innerText = dati.min.toFixed(1);
-  });
-
-  const intestazioni = document.querySelectorAll("table thead tr th");
-  const headerRow = document.querySelector("table thead tr");
-  if (![...intestazioni].some(th => th.innerText === "Tmax")) {
-    const thMax = document.createElement("th");
-    thMax.innerText = "Tmax";
-    headerRow.appendChild(thMax);
-  }
-  if (![...intestazioni].some(th => th.innerText === "Tmin")) {
-    const thMin = document.createElement("th");
-    thMin.innerText = "Tmin";
-    headerRow.appendChild(thMin);
-  }
-}
-
-function mostraEstremiNeiPopup() {
-  const popupLayer = document.querySelectorAll(".leaflet-popup-content");
-  popupLayer.forEach(popup => {
-    const match = popup.innerHTML.match(/Stazione:\s(.+?)<br>/);
-    if (!match) return;
-    const stationId = match[1];
-    const dati = window.extremiGiornalieri[stationId];
-    if (!dati) return;
-
-    if (!popup.innerHTML.includes("Massima:")) {
-      popup.innerHTML += `<b>Massima:</b> ${dati.max} °C<br><b>Minima:</b> ${dati.min} °C<br></div>`;
-    }
-  });
-}
-
-function caricaEstremiDaFirebase() {
-  const oggi = new Date().toISOString().split("T")[0];
-  const perStazione = {};
-
-  db.collection("osservazioni").get().then((snapshot) => {
-    snapshot.forEach((doc) => {
-      const d = doc.data();
-      if (!d.timestamp || !d.temperatura || !d.stationId) return;
-      const ts = d.timestamp.seconds ? new Date(d.timestamp.seconds * 1000) : new Date(d.timestamp);
-      const giorno = ts.toISOString().split("T")[0];
-      if (giorno !== oggi) return;
-
-      if (!perStazione[d.stationId]) {
-        perStazione[d.stationId] = { max: d.temperatura, min: d.temperatura };
-      } else {
-        perStazione[d.stationId].max = Math.max(perStazione[d.stationId].max, d.temperatura);
-        perStazione[d.stationId].min = Math.min(perStazione[d.stationId].min, d.temperatura);
-      }
-    });
-
-    window.extremiGiornalieri = perStazione;
-    aggiornaTabellaConEstremi();
-    setTimeout(mostraEstremiNeiPopup, 1000);
-  });
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  caricaEstremiDaFirebase();
-});
-</script>
 <script>// Ordinamento Tmax e Tmin sulla tabella
 document.addEventListener("DOMContentLoaded", () => {
   const header = document.querySelector("table thead tr");
@@ -4886,7 +4745,7 @@ if (capLines.length) {
     }
 
     waitLeaflet().then(() => {
-        const map = window.mymap || window.map;
+        const map2 = window.mymap || window.map;
         if (!map) { console.warn('[visibilità v7] mappa non trovata'); return; }
 
         // === Interfaccia: Pulsante ORD ===
@@ -5437,6 +5296,177 @@ async function generaSnapshot () {
 }
 </script>
 
+
+<!-- === Custom per‑stazione label patch 2025‑06‑26 === -->
+<script id="custom_station_label">
+(function(){
+  /* Modifica qui le etichette per singola stazione -------------------- */
+  const customStationLabels = {
+    /* Cosenza – Viale Parco */ "ICOSEN19": "Staz. di Meteo in Calabria",
+    /* Rende – Santa Chiara */ "IRENDE25": "Staz. di Meteo in Calabria"
+  };
+  window.customStationLabels = customStationLabels;   // accesso globale
+
+  function labelFor(stationId){
+    return customStationLabels[stationId] || "Staz. MLG";
+  }
+  window.getStationLabel = labelFor;
+
+  /* --- 1. Override bindPopup per personalizzare il popup ------------- */
+  const origBind = L.Marker.prototype.bindPopup;
+  L.Marker.prototype.bindPopup = function(content, opts){
+    try{
+      const sid = this.stationId || (this.options && this.options.stationId);
+      if(typeof content === "string" && sid){
+        const lbl = labelFor(sid);
+        if(lbl !== "Staz. MLG"){
+          content = content.replace(/Staz\. MLG/g, lbl);
+        }
+      }
+    }catch(e){ console.error("customStationLabel patch:", e); }
+    return origBind.call(this, content, opts);
+  };
+
+  /* --- 2. Patch aggiornaTabella per aggiornare le card --------------- */
+  function patchAggiorna(){
+    const orig = window.aggiornaTabella;
+    if(typeof orig !== "function" || orig.__patchedLabel) return;
+
+    window.aggiornaTabella = function(){
+      orig.apply(this, arguments);
+
+      document.querySelectorAll('#tabella .card').forEach(card=>{
+        const sid = card.dataset?.stationId;
+        if(!sid) return;
+        const lbl = labelFor(sid);
+        if(lbl !== "Staz. MLG"){
+          card.innerHTML = card.innerHTML.replace(/Staz\. MLG/g, lbl);
+        }
+      });
+    };
+    window.aggiornaTabella.__patchedLabel = true;
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", patchAggiorna);
+  }else{
+    patchAggiorna();
+  }
+})();
+</script>
+
+
+
+
+
+
+
+<!-- PATCH PERFORMANCE v3 (2025‑06‑27): caching, dynamic concurrency, timeout, preconnect, lazy CSS -->
+<link rel="preconnect" href="https://api.open-meteo.com">
+<script id="perf-patch-v3" defer>
+(() => {
+  /* ---------- CONFIG ---------- */
+  const HARDWARE_CORES = navigator.hardwareConcurrency || 8;
+  const MAX_CONCURRENT = Math.min(24, Math.max(8, HARDWARE_CORES * 2)); // 2× cores, capped 24
+  const FETCH_TIMEOUT_MS = 2500;              // abort after 2.5 s
+  const MAX_CACHE_AGE_MS = 5 * 60 * 1000;     // 5 min cache validity
+  const CACHE_PREFIX = 'om_';
+
+  /* ---------- AUX: Lazy‑CSS dedupe ---------- */
+  document.addEventListener('DOMContentLoaded', () => {
+    const seen = new Set();
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(l => {
+      const href = l.getAttribute('href');
+      if(seen.has(href)){
+        l.setAttribute('rel', 'preload');
+        l.setAttribute('as', 'style');
+        l.onload = () => { l.rel = 'stylesheet'; };
+      }
+      seen.add(href);
+    });
+  });
+
+  /* ---------- GUARDBOX ---------- */
+  if (typeof window.caricaDatiOpenMeteo !== 'function' || !Array.isArray(window.stazioni)) return;
+
+  const stazioniOM = window.stazioni.filter(s => s.openMeteo);
+
+  const buildEntry = (stazione, data) => ({
+    stationId     : stazione.stationId,
+    temp          : data.current.temperature_2m,
+    tempVal       : data.current.temperature_2m,
+    pioggia       : data.current.precipitation,
+    umidita       : data.current.relativehumidity_2m,
+    raffica       : data.current.wind_gusts_10m,
+    percepitaVal  : (typeof calcolaPercepita === 'function') ? calcolaPercepita(data.current.temperature_2m,data.current.relativehumidity_2m,data.current.wind_speed_10m) : null
+  });
+
+  /* ---------- CACHE HELPERS ---------- */
+  function cacheKey(stazione){ return CACHE_PREFIX + stazione.stationId; }
+  function loadCache(stazione){
+    try{
+      const raw = localStorage.getItem(cacheKey(stazione));
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      if(Date.now() - obj.ts > MAX_CACHE_AGE_MS) return null;
+      return obj.data;
+    }catch(_){ return null; }
+  }
+  function saveCache(stazione, data){
+    try{
+      localStorage.setItem(cacheKey(stazione), JSON.stringify({ts: Date.now(), data}));
+    }catch(_){}
+  }
+
+  /* ---------- SINGLE STATION FETCH ---------- */
+  async function fetchStazione (stazione){
+    // 1) Check cache
+    const cached = loadCache(stazione);
+    if(cached){
+      window.datiTabella.push(buildEntry(stazione, cached));
+      return;
+    }
+
+    // 2) Otherwise fetch with timeout
+    const base = 'https://api.open-meteo.com/v1/forecast';
+    const query = `latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&timezone=auto`;
+    const url = base + '?' + query;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try{
+      const resp = await fetch(url, { signal: controller.signal });
+      if(!resp.ok) throw new Error(resp.status);
+      const data = await resp.json();
+      window.datiTabella.push(buildEntry(stazione, data));
+      saveCache(stazione, data);
+    }catch(err){
+      console.warn('OpenMeteo v3 patch: skipping', stazione.stationId, err?.message || err);
+    }finally{
+      clearTimeout(timeoutId);
+    }
+  }
+
+  /* ---------- OVERRIDE MAIN FUNCTION ---------- */
+  window.caricaDatiOpenMeteo = async function patchedCaricaDatiOpenMeteo(){
+    const queue = stazioniOM.slice(); // shallow copy
+    const workers = Array.from({ length: Math.min(MAX_CONCURRENT, queue.length) }, async () => {
+      while(queue.length){
+        await fetchStazione(queue.shift());
+      }
+    });
+    await Promise.all(workers);
+  };
+})();
+</script>
+
+
+<script>
+function calcolaWindChill_C_safe(t, v){
+  if(t==null||v==null||isNaN(t)||isNaN(v)||v<2) return null;
+  const wci = 13.12 + 0.6215*t - 11.37*Math.pow(v,0.16) + 0.3965*t*Math.pow(v,0.16);
+  return Math.round(wci*10)/10;
+}
+</script>
 </body>
 </html>
 <script>
