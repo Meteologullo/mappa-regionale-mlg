@@ -5467,6 +5467,71 @@ function calcolaWindChill_C_safe(t, v){
   return Math.round(wci*10)/10;
 }
 </script>
+
+<!-- Snapshot share-friendly modern skin -->
+<style id="snapshot_mobile_modern">
+@media (max-width:700px){
+  #snapshot-badge{
+    position:absolute !important;
+    top:12px !important;
+    left:50% !important;
+    transform:translateX(-50%) !important;
+    width:90vw !important;
+    max-height:40vh !important;
+    overflow-y:auto !important;
+    padding:10px 14px !important;
+    font-size:13px !important;
+    line-height:1.35 !important;
+    color:#fff !important;
+    background:rgba(0,0,0,0.35) !important;
+    backdrop-filter:blur(8px) !important;
+    border:1px solid rgba(255,255,255,0.1) !important;
+    border-radius:14px !important;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4) !important;
+  }
+  #snap-riepilogo{
+    position:absolute !important;
+    bottom:82px !important;
+    left:50% !important;
+    transform:translateX(-50%);
+    width:90vw !important;
+    font-size:12px !important;
+    line-height:1.35 !important;
+    padding:10px 12px !important;
+    color:#fff !important;
+    background:rgba(0,0,0,0.3) !important;
+    backdrop-filter:blur(8px) !important;
+    border:1px solid rgba(255,255,255,0.1) !important;
+    border-radius:12px !important;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4) !important;
+  }
+  #snap-legend{
+    position:absolute !important;
+    bottom:14px !important;
+    left:50% !important;
+    transform:translateX(-50%) !important;
+    width:150px !important;
+    height:10px !important;
+    border-radius:8px !important;
+    box-shadow:0 2px 6px rgba(0,0,0,0.4) !important;
+  }
+  .label-snap{
+    font-size:10px !important;
+    max-width:70px;
+    text-align:center;
+    white-space:pre-line;
+    color:#fff !important;
+    text-shadow:0 0 3px #000;
+  }
+  #snap-qr{
+    width:72px !important;
+    height:72px !important;
+    border-radius:10px !important;
+    box-shadow:0 2px 6px rgba(0,0,0,0.4);
+  }
+}
+</style>
+
 </body>
 </html>
 <script>
