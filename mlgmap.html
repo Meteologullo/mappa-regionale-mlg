@@ -1798,6 +1798,339 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Infocard v8 -->
+<style id="infocard-upgrade">
+/* identical CSS as v7 */
+#tabella{display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-start;align-items:stretch;padding:0;}
+#tabella > div:has(#riepilogo-testo){flex:0 0 100%!important;width:100%!important;}
+#tabella > div:not(:has(#riepilogo-testo)){flex:0 0 230px;max-width:230px;background:#fff!important;border-radius:14px!important;box-shadow:0 3px 12px rgba(0,0,0,.07)!important;padding:14px 16px!important;display:flex!important;flex-direction:column!important;align-items:center!important;position:relative;transition:transform .25s ease,box-shadow .25s ease;}
+#tabella > div:not(:has(#riepilogo-testo)):hover{transform:translateY(-4px);box-shadow:0 8px 20px rgba(0,0,0,.12);}
+#tabella > div:not(:has(#riepilogo-testo)) > div:first-child{font:600 .93rem/1.25 "Segoe UI",sans-serif!important;color:#012860!important;text-align:center;margin-bottom:6px!important;width:100%;}
+#tabella > div:not(:has(#riepilogo-testo)) > div:nth-child(n+2){display:flex!important;flex-wrap:wrap!important;justify-content:center;gap:5px 8px!important;width:100%!important;}
+#tabella .metric{font:500 .8rem/1.25 "Segoe UI",sans-serif!important;color:#333!important;white-space:nowrap;}
+#tabella .main-metric{font:800 1.9rem/1.1 "Segoe UI",sans-serif!important;color:#111!important;width:100%!important;text-align:center;margin-bottom:4px!important;}
+#tabella .metric-hidden{display:none!important;}
+#tabella > div:not(:has(#riepilogo-testo)) .badge{position:absolute;top:12px;right:12px;font-size:.65rem;padding:3px 7px;background:#ff7b00;color:#fff;border-radius:9999px;box-shadow:0 2px 6px rgba(0,0,0,.14);}
+@media(max-width:550px){#tabella{gap:12px;}#tabella > div:not(:has(#riepilogo-testo)){flex:0 0 calc(50% - 12px);max-width:none;min-width:150px;}#tabella .main-metric{font-size:1.5rem!important;}}
+body{background:#f4f7fc!important;}
+</style>
+
+
+<!-- ChatGPT patch: ensure two cards per row also on small screens -->
+<style id="chatgpt-mobile-2col">
+@media (max-width: 600px){
+  /* forza due card affiancate */
+  #tabella > div:not(:has(#riepilogo-testo)),
+  #tabella .card{
+     flex: 0 0 50% !important;
+     width: 50% !important;
+     max-width: 50% !important;
+  }
+}
+</style>
+
+
+<!-- ChatGPT patch v6: force minimum two cards per row on very small screens -->
+<style id="chatgpt-mobile-2col-v6">
+@media (max-width: 640px){
+  /* Each card container takes half the width minus small gap */
+  #tabella > div:not(:has(#riepilogo-testo)){
+     flex: 0 0 calc(50% - 8px) !important;
+     max-width: calc(50% - 8px) !important;
+     width: calc(50% - 8px) !important;
+  }
+}
+</style>
+
+
+<!-- ChatGPT patch v7: enforce two cards per row on mobile using CSS Grid -->
+<style id="chatgpt-mobile-grid-v7">
+  @media (max-width: 640px){
+    #tabella{
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 8px !important;
+      align-items: stretch !important;
+    }
+    #tabella > div:not(:has(#riepilogo-testo)){
+      width: 100% !important;
+      margin: 0 !important;
+      min-height: 200px !important; /* optional uniformity */
+      box-sizing: border-box !important;
+    }
+  }
+</style>
+
+
+<!-- ChatGPT patch v8: final mobile two-column layout and uniform card sizing -->
+<style id="chatgpt-mobile-grid-v8">
+@media (max-width: 640px){
+  #tabella{
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  #tabella > div:not(:has(#riepilogo-testo)){
+    margin: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    height: 100% !important;
+    min-height: 200px !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+}
+</style>
+
+
+<!-- ChatGPT patch v9: refine mobile grid and card uniformity -->
+<style id="chatgpt-mobile-grid-v9">
+@media (max-width: 640px){
+  #tabella{
+    width:100% !important;
+    padding:0 !important;
+    margin:0 auto !important;
+    display:grid !important;
+    grid-template-columns:repeat(2,1fr) !important;
+    grid-auto-rows:1fr !important; /* rows equal height */
+    gap:4px !important;
+  }
+  /* generic card */
+  #tabella > div:not(:has(#riepilogo-testo)){
+    margin:0 !important;
+    width:100% !important;
+    height:100% !important;
+    box-sizing:border-box !important;
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:space-between !important; /* forces footer at bottom */
+    border-radius:12px !important;
+    overflow:hidden !important;
+  }
+  /* ensure title zone always fixed height */
+  #tabella > div:not(:has(#riepilogo-testo)) h3{
+    margin:0 0 4px 0 !important;
+    min-height:48px !important;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+  }
+}
+</style>
+
+
+<!-- ChatGPT patch v10: remove header‑content gap, harmonize first card, tighten grid -->
+<style id="chatgpt-mobile-grid-v10">
+@media (max-width: 640px){
+  #tabella{
+    gap:2px !important;
+  }
+  #tabella > div:not(:has(#riepilogo-testo)){
+    display:flex !important;
+    flex-direction:column !important;
+    justify-content:flex-start !important; /* eliminate big gap */
+  }
+  /* push last element (timestamp) to bottom */
+  #tabella > div:not(:has(#riepilogo-testo)) > *:last-child{
+    margin-top:auto !important;
+  }
+  /* tighter title spacing */
+  #tabella > div:not(:has(#riepilogo-testo)) h3{
+    margin:4px 2px 2px 2px !important;
+    min-height:auto !important; /* allow natural height */
+  }
+}
+</style>
+
+
+<!-- ChatGPT patch v11: fix title‑data gap, uniform card layout, make riepilogo full‑width -->
+<style id="chatgpt-mobile-grid-v11">
+@media (max-width: 640px){
+  /* Grid container */
+  #tabella{
+    width:100%!important;
+    margin:0 auto!important;
+    padding:0!important;
+    display:grid!important;
+    grid-template-columns:repeat(2,1fr)!important;
+    gap:4px!important;
+  }
+
+  /* Summary box spans full width and keeps block flow */
+  #tabella > div:has(#riepilogo-testo){
+    grid-column:1 / -1!important;
+    display:block!important;
+  }
+
+  /* Generic card layout */
+  #tabella > div:not(:has(#riepilogo-testo)){
+    box-sizing:border-box!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:flex-start!important;
+    padding:8px!important;
+    margin:0!important;
+  }
+
+  /* Title */
+  #tabella > div:not(:has(#riepilogo-testo)) h3{
+    margin:0 0 4px 0!important;
+    text-align:center!important;
+    line-height:1.2!important;
+  }
+
+  /* Ensure info rows compact & consistent */
+  #tabella > div:not(:has(#riepilogo-testo)) > *:not(h3){
+    margin:2px 0!important;
+  }
+
+  /* Keep timestamp at bottom */
+  #tabella > div:not(:has(#riepilogo-testo)) > *:last-child{
+    margin-top:auto!important;
+  }
+}
+</style>
+
+
+<!-- ChatGPT patch v12: zero title-gap, tighter metric spacing, consistent card style -->
+<style id="chatgpt-mobile-grid-v12">
+@media (max-width:640px){
+  /* zero margin between title and metrics */
+  #tabella > div:not(:has(#riepilogo-testo)) h3{
+    margin:0 0 2px 0 !important;
+    text-align:center!important;
+    line-height:1.15!important;
+  }
+
+  /* override inline gap inside metrics flex wrapper */
+  #tabella > div:not(:has(#riepilogo-testo)) > div:nth-child(2){
+    gap:4px !important;
+    align-items:flex-start!important;
+  }
+
+  /* remove extra left/right padding to maximize width in column */
+  #tabella > div:not(:has(#riepilogo-testo)){
+    padding:6px!important;
+  }
+}
+</style>
+
+
+<!-- ChatGPT uniform-card-patch v2 -->
+<script id="uniform-card-patch-js">
+window.addEventListener('load', () => {
+  const css = `
+/* === ChatGPT uniform-card-patch v2 === */
+#tabella > div:not(:has(#riepilogo-testo)),
+#tabella .card{
+    flex: 0 0 230px !important;
+    width: 230px !important;
+    max-width: 230px !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    border: 1px solid #ccddee !important;
+    border-radius: 14px !important;
+    box-shadow: 0 3px 12px rgba(0,0,0,.07) !important;
+    padding: 14px 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    transition: transform .25s ease, box-shadow .25s ease;
+}
+#tabella > div:not(:has(#riepilogo-testo)):hover,
+#tabella .card:hover{
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,.12);
+}
+#tabella > div:not(:has(#riepilogo-testo)) > div:first-child,
+#tabella .card > div:first-child{
+    font: 600 .93rem/1.25 "Segoe UI", sans-serif !important;
+    color: #012860 !important;
+    text-align: center !important;
+    margin-bottom: 6px !important;
+    width: 100%;
+}
+#tabella > div:not(:has(#riepilogo-testo)) > div:nth-child(n+2),
+#tabella .card > div:nth-child(n+2){
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 5px 8px !important;
+    width: 100% !important;
+}
+#tabella .metric,
+#tabella > div:not(:has(#riepilogo-testo)) .metric{
+    font: 500 .8rem/1.25 "Segoe UI", sans-serif !important;
+    color: #333 !important;
+    white-space: nowrap;
+}
+#tabella .main-metric,
+#tabella > div:not(:has(#riepilogo-testo)) .main-metric{
+    font: 800 1.9rem/1.1 "Segoe UI", sans-serif !important;
+    color: #111 !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin-bottom: 4px !important;
+}
+#tabella .metric-hidden,
+#tabella > div:not(:has(#riepilogo-testo)) .metric-hidden{
+    display: none !important;
+}
+#tabella > div:not(:has(#riepilogo-testo)) .badge,
+#tabella .card .badge{
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: .65rem;
+    padding: 3px 7px;
+    background: #ff7b00;
+    color: #fff;
+    border-radius: 9999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.14);
+}
+@media(max-width:550px){
+    #tabella{gap:12px!important;}
+    #tabella > div:not(:has(#riepilogo-testo)),
+    #tabella .card{
+        flex: 0 0 calc(50% - 12px) !important;
+        width: calc(50% - 12px) !important;
+        max-width: calc(50% - 12px) !important;
+    }
+    #tabella > div:not(:has(#riepilogo-testo)) .main-metric,
+    #tabella .card .main-metric{
+        font-size: 1.5rem !important;
+    }
+}
+`;
+  const style = document.createElement('style');
+  style.id = 'uniform-card-patch';
+  style.textContent = css;
+  document.head.appendChild(style);
+});
+</script>
+
 </head>
 <body>
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
@@ -1823,6 +2156,7 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
 <button class="sidebar-btn" onclick="toggleRadar()" style="background-color: #444; color: white;" title="Radar/Satellite">RAD</button>
 <button class="sidebar-btn" onclick="location.reload();" style="background-color:#009688;color:white;" title="Ricarica pagina">REF</button>
 
+<button class="sidebar-btn" id="btnPlot" onclick="togglePlot()" style="background:#8b00ff;color:#fff" title="Interpolazione">PLOT</button>
 <button class="sidebar-btn" onclick="generaSnapshot()" style="background:#673ab7;color:#fff" title="Cattura e condividi">📸</button></div>
 <!-- Striscia con la scritta Meteo Lo Gullo -->
 <div id="banner">
@@ -2990,8 +3324,43 @@ if (ordFiltro === "tmax" || ordFiltro === "tmin") {
     })
     .forEach(s => {
 
-      const bgColor = getColor(s.tempVal);
+      
+      let bgColor;
+      let highlightHTML;
+      switch (ordFiltro) {
+        case "pioggia": {
+          const mm = parseFloat(s.pioggia) || 0;
+          highlightHTML = `🌧️ ${s.pioggia} mm`;
+          bgColor = (typeof getColorPioggia === 'function' ? getColorPioggia(mm) : "#b9dbff");
+          break;
+        }
+        case "raffica": {
+          const raff = parseFloat(s.raffica) || 0;
+          highlightHTML = `💨 ${s.raffica} km/h`;
+          bgColor = (typeof getColorVento === 'function' ? getColorVento(raff) : (typeof getColorVentoPatched === 'function' ? getColorVentoPatched(raff) : "#00b000"));
+          break;
+        }
+        case "tmax": {
+          const maxVal = (window.extremiGiornalieri[s.stationId] || {}).max ?? "--";
+          highlightHTML = `🔺 ${maxVal}°C`;
+          const valNum = parseFloat(maxVal);
+          bgColor = getColor(isNaN(valNum) ? 0 : valNum);
+          break;
+        }
+        case "tmin": {
+          const minVal = (window.extremiGiornalieri[s.stationId] || {}).min ?? "--";
+          highlightHTML = `🔻 ${minVal}°C`;
+          const valNum = parseFloat(minVal);
+          bgColor = getColor(isNaN(valNum) ? 0 : valNum);
+          break;
+        }
+        default: {
+          highlightHTML = `🌡️ ${s.temp}°C`;
+          bgColor = getColor(s.tempVal);
+        }
+      }
       const textColor = getTextColorForBackground(bgColor);
+
 
       html += `
       <div style="background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); padding: 10px;">
@@ -2999,7 +3368,7 @@ if (ordFiltro === "tmax" || ordFiltro === "tmin") {
           ${s.nome} <span style="font-size: 13px; color: #555;">(${s.provincia})</span>
         </div>
         <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; line-height: 1.2;">
-          <div style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 4px;">🌡️ ${s.temp}°C</div>
+          <div style="background-color: ${bgColor}; color: ${textColor}; padding: 2px 6px; border-radius: 4px;">${highlightHTML}</div>
           <div>💧 ${s.umidita}%</div><div>🥵 ${s.percepita}°C</div><div>🔻 ${window.extremiGiornalieri[s.stationId]?.min || "--"}°C / 🔺 ${window.extremiGiornalieri[s.stationId]?.max || "--"}°C</div>
           <div>💨 ${s.raffica} km/h</div>
           <div><strong>${s.condizione}</strong></div>
@@ -4036,6 +4405,15 @@ function visualizzaPioggia () {
 // espone in globale
 window.visualizzaPioggia = visualizzaPioggia;
 
+
+// Aggiorna solo il raggio della heatmap al cambio di zoom, mantenendo i colori
+if(window.map){
+  map.on('zoomend', ()=>{
+    if(window.plotLayer && typeof window.plotLayer.setRadius === 'function'){
+      window.plotLayer.setRadius(calcHeatRadius(map.getZoom()));
+    }
+  });
+}
 })(); 
 </script>
 <!-- Patch aggiornamento pioggia OpenMeteo / marker -->
@@ -5298,62 +5676,95 @@ async function generaSnapshot () {
 
 
 <!-- === Custom per‑stazione label patch 2025‑06‑26 === -->
+
 <script id="custom_station_label">
 (function(){
-  /* Modifica qui le etichette per singola stazione -------------------- */
-  const customStationLabels = {
-    /* Cosenza – Viale Parco */ "ICOSEN19": "Staz. di Meteo in Calabria",
-    /* Rende – Santa Chiara */ "IRENDE25": "Staz. di Meteo in Calabria"
-  };
-  window.customStationLabels = customStationLabels;   // accesso globale
+  /* --- helpers ------------------------------------------------------- */
+  function isWU(id){ return typeof id==="string" && /^I[A-Z0-9]/i.test(id); }
+  function labelFor(id){ return isWU(id) ? "*" : ""; }
 
-  function labelFor(stationId){
-    return customStationLabels[stationId] || "Staz. MLG";
+  /* Aggiorna la mappa customStationLabels, se presente */
+  function patchMapping(){
+    if(window.customStationLabels){
+      Object.keys(window.customStationLabels).forEach(function(k){
+        window.customStationLabels[k] = labelFor(k);
+      });
+    }
   }
-  window.getStationLabel = labelFor;
 
-  /* --- 1. Override bindPopup per personalizzare il popup ------------- */
-  const origBind = L.Marker.prototype.bindPopup;
-  L.Marker.prototype.bindPopup = function(content, opts){
-    try{
-      const sid = this.stationId || (this.options && this.options.stationId);
-      if(typeof content === "string" && sid){
+  /* Rimuove/aggiorna etichette dentro un elemento HTML */
+  function scrubNode(node){
+    if(!node) return;
+    /* elimina "Staz. ..." e spazi finali */
+    node.innerHTML = node.innerHTML.replace(/Staz\.[^<]*/g, function(match){
+      /* se era "Staz. MLG" o "Staz. di ..." toglilo pure */
+      return "";
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 1.  Intercetta bindPopup PRIMA della creazione dei popup --------- */
+  const origBind = L.Marker && L.Marker.prototype.bindPopup;
+  if(origBind && !origBind.__patchedForAsterisk){
+    L.Marker.prototype.bindPopup = function(content, opts){
+      try{
+        const sid = this.stationId || (this.options && this.options.stationId);
         const lbl = labelFor(sid);
-        if(lbl !== "Staz. MLG"){
-          content = content.replace(/Staz\. MLG/g, lbl);
+        if(typeof content === "string"){
+          /* Se il contenuto include "Staz." sostituisci */
+          content = content.replace(/Staz\.[^<]*/g, lbl);
         }
-      }
-    }catch(e){ console.error("customStationLabel patch:", e); }
-    return origBind.call(this, content, opts);
-  };
+      }catch(e){ console.warn("asterisk patch bindPopup", e); }
+      return origBind.call(this, content, opts);
+    };
+    L.Marker.prototype.bindPopup.__patchedForAsterisk = true;
+  }
 
-  /* --- 2. Patch aggiornaTabella per aggiornare le card --------------- */
+  /* 2.  Per popup già preparati/creati, pulizia su evento ---------- */
+  function attachPopupScrub(){
+    if(window.map && typeof map.on==="function"){
+      map.on("popupopen", function(ev){
+        scrubNode(ev.popup.getElement());
+      });
+    }
+  }
+
+  /* 3.  Patch aggiornaTabella per la tabella ------------------------ */
   function patchAggiorna(){
     const orig = window.aggiornaTabella;
-    if(typeof orig !== "function" || orig.__patchedLabel) return;
+    if(typeof orig!=="function" || orig.__patchedForAsterisk) return;
 
     window.aggiornaTabella = function(){
       orig.apply(this, arguments);
-
-      document.querySelectorAll('#tabella .card').forEach(card=>{
-        const sid = card.dataset?.stationId;
-        if(!sid) return;
-        const lbl = labelFor(sid);
-        if(lbl !== "Staz. MLG"){
-          card.innerHTML = card.innerHTML.replace(/Staz\. MLG/g, lbl);
-        }
-      });
+      /* pulizia su tutta la tabella */
+      document.querySelectorAll('#tabella, #listaStazioni').forEach(scrubNode);
     };
-    window.aggiornaTabella.__patchedLabel = true;
+    window.aggiornaTabella.__patchedForAsterisk = true;
   }
 
-  if(document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", patchAggiorna);
-  }else{
+  /* 4.  Pulizia periodica di sicurezza ------------------------------ */
+  function periodicScrub(){
+    setInterval(function(){
+      document.querySelectorAll('#tabella, #listaStazioni').forEach(scrubNode);
+    }, 1500);
+  }
+
+  /* 5.  Inizializzazione ------------------------------------------- */
+  function init(){
+    patchMapping();
     patchAggiorna();
+    attachPopupScrub();
+    periodicScrub();
+  }
+
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded", init);
+  }else{
+    init();
   }
 })();
 </script>
+
 
 
 
@@ -5531,6 +5942,242 @@ function calcolaWindChill_C_safe(t, v){
   }
 }
 </style>
+
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<script>
+/* ========= Interpolazione regionale (PLOT) ========= */
+(function(){
+  // Raggio dinamico in base allo zoom (heatmap)
+  function calcHeatRadius(z){
+     const base=35, baseZ=9;           // raggio base a zoom 9
+     return Math.max(8, Math.round(base*Math.pow(2, z-baseZ)));
+  }
+
+  let plotLayer=null, plotActive=false, currentParam='temp';
+
+  // patch funzioni per intercettare parametro
+  const wrap=(fn,set)=>function(...a){currentParam=set(...a);return fn(...a)};
+  if(window.visualizzaAttuali)  visualizzaAttuali=wrap(visualizzaAttuali,()=> 'temp');
+  if(window.visualizzaPercepita) visualizzaPercepita=wrap(visualizzaPercepita,()=> 'percepita');
+  if(window.visualizzaUmidita)   visualizzaUmidita=wrap(visualizzaUmidita,()=> 'umidita');
+  if(window.visualizzaPioggia)   visualizzaPioggia=wrap(visualizzaPioggia, ()=> 'pioggia');
+  if(window.visualizzaRaffiche)  visualizzaRaffiche=wrap(visualizzaRaffiche,()=> 'raffica');
+  if(window.visualizzaEstremi){
+    const _old=visualizzaEstremi;
+    window.visualizzaEstremi=function(tipo){currentParam=(tipo==='max')?'tmax':'tmin';return _old(tipo);};
+  }
+
+  function getVal(d){
+    switch(currentParam){
+      case 'temp': return d.tempVal;
+      case 'percepita': return d.percepitaVal;
+      case 'umidita': return d.umidita;
+      case 'pioggia': return parseFloat(d.pioggia)||0;
+      case 'raffica': return d.raffica;
+      case 'tmax': return getEstremoGiornaliero(d.stationId,'max');
+      case 'tmin': return getEstremoGiornaliero(d.stationId,'min');
+    }
+    return null;
+  }
+
+  function gradientFor(p){
+    if(p==='umidita') return {0:'#ff5500',0.5:'#66ccff',1:'#0055ff'};
+    if(p==='pioggia') return {0:'#ffffff',0.4:'#99ccff',0.7:'#3399ff',1:'#003388'};
+    if(p==='raffica') return {0:'#ffffcc',0.5:'#ff9933',1:'#ff0000'};
+    return {0:'#0000ff',0.25:'#00ffff',0.5:'#00ff00',0.75:'#ffff00',1:'#ff0000'};
+  }
+
+  function buildHeat(){
+    if(!window.datiTabella||!window.markersById) return [];
+    return datiTabella.map(d=>{
+       const m=markersById[d.stationId]; if(!m) return null;
+       const v=getVal(d); if(!Number.isFinite(v)) return null;
+       const {lat,lng}=m.getLatLng();
+       return [lat,lng,v];
+    }).filter(Boolean);
+  }
+
+  function hideMarkers(on){
+    for(const id in markersById){
+       const el=markersById[id].getElement(); if(el) el.style.opacity=on?0:1;
+    }
+  }
+
+  window.togglePlot=function(){
+      if(!plotActive){
+          const pts=buildHeat();
+          if(pts.length<3){alert('Dati in caricamento o insufficienti');return;}
+          const vs=pts.map(p=>p[2]); const mn=Math.min(...vs), mx=Math.max(...vs);
+          const norm=mx===mn?()=>1:v=>(v-mn)/(mx-mn);
+          const heat=L.heatLayer(pts.map(p=>[p[0],p[1],norm(p[2])]),{
+             radius: calcHeatRadius(map.getZoom()), blur:25, maxZoom:8, gradient: gradientFor(currentParam)
+          }).addTo(map);
+          plotLayer=heat; plotActive=true; hideMarkers(true);
+          document.getElementById('btnPlot').classList.add('attivo');
+      }else{
+          if(plotLayer) map.removeLayer(plotLayer);
+          plotLayer=null; plotActive=false; hideMarkers(false);
+          document.getElementById('btnPlot').classList.remove('attivo');
+      }
+  };
+
+  // Aggiorna dinamicamente il raggio della heatmap al cambio di zoom
+  if(window.map){
+    map.on('zoomend', ()=>{
+      if(window.plotLayer && window.plotLayer.setOptions){
+        window.plotLayer.setOptions({radius: calcHeatRadius(map.getZoom()), gradient: gradientFor(currentParam)});
+      }
+    });
+  }
+})();
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Infocard v10 JS -->
+<script id="infocard-upgrade-js">
+(function(){
+  const KEY_DETECT = {
+    caldo:   txt => txt.includes('🌡️'),
+    freddo:  txt => txt.includes('🌡️'),
+    tmax:    txt => txt.includes('🔺') || txt.toLowerCase().includes('max'),
+    tmin:    txt => txt.includes('🔻') || txt.toLowerCase().includes('min'),
+    raffica: txt => txt.includes('💨') || txt.toLowerCase().includes('raffica'),
+    pioggia: txt => txt.includes('🌧️') || txt.toLowerCase().includes('mm')
+  };
+
+  function upgradeCards(){
+    const order = document.getElementById('filtro-ordinamento')?.value || 'caldo';
+    const detector = KEY_DETECT[order] || (()=>false);
+
+    document.querySelectorAll('#tabella > div:not(:has(#riepilogo-testo))').forEach(card=>{
+      // remove previous central metric injections
+      card.querySelectorAll('.main-metric.injected').forEach(el=>el.remove());
+      card.querySelectorAll('.main-metric').forEach(el=>el.classList.remove('main-metric'));
+
+      const metrics = Array.from(card.querySelectorAll(':scope > div:nth-child(n+2) > div'));
+
+      // reset hidden flags
+      metrics.forEach(m=>m.classList.remove('metric-hidden'));
+
+      // choose matching metric
+      let chosen = metrics.find(m=>detector(m.textContent));
+      if(!chosen) chosen = metrics[0];
+
+      // put chosen in big spot
+      const big = chosen.cloneNode(true);
+      big.classList.add('main-metric','injected');
+      card.insertBefore(big, card.children[1]);
+
+      // hide original chosen
+      chosen.classList.add('metric-hidden');
+    });
+  }
+
+  // run when changes happen
+  const table = document.getElementById('tabella');
+  if(table){
+    new MutationObserver(()=>setTimeout(upgradeCards,0)).observe(table,{childList:true,subtree:true});
+  }
+  document.getElementById('filtro-ordinamento')?.addEventListener('change',()=>setTimeout(upgradeCards,0));
+  window.addEventListener('load',()=>setTimeout(upgradeCards,0));
+})();
+</script>
+
+
+<!-- ChatGPT patch: color square metric according to selected filter -->
+<script id="chatgpt-metric-color">
+(function(){
+  const COLOR_MAP = {
+    caldo:  "#d0006f",
+    freddo: "#0066d0",
+    tmax:   "#d0006f",
+    tmin:   "#0066d0",
+    raffica:"#ff8c00",
+    pioggia:"#007bff"
+  };
+  function recolor(){
+     const order = document.getElementById('filtro-ordinamento')?.value || 'caldo';
+     const color = COLOR_MAP[order] || "#007bff";
+     document.querySelectorAll('#tabella .main-metric').forEach(el=>{
+        el.style.backgroundColor = color;
+        el.style.color = '#fff';
+        el.style.borderRadius = '6px';
+        el.style.padding = '2px 6px';
+        el.style.display = 'inline-block';
+     });
+  }
+  document.getElementById('filtro-ordinamento')?.addEventListener('change', ()=>setTimeout(recolor,0));
+  window.addEventListener('load', ()=>setTimeout(recolor,0));
+})();
+</script>
+
+
+<!-- Mobile card compact patch v4 by ChatGPT 2025‑06‑27 -->
+<script id="chatgpt-mobile-compact-20250627-v4">
+/* Inseriamo il CSS alla fine del caricamento per sovrascrivere qualsiasi regola successiva */
+document.addEventListener('DOMContentLoaded', function () {
+  const css = `
+  @media (max-width:640px){
+    /* Container principale: flex wrap */
+    #tabella{
+      display:flex !important;
+      flex-wrap:wrap !important;
+      gap:8px !important;
+      padding:6px !important;
+    }
+    /* Tutte le card meteo tranne riepilogo */
+    #tabella > div:not(:has(#riepilogo-testo)){
+      flex:0 0 calc(50% - 8px) !important; /* due colonne */
+      max-width:calc(50% - 8px) !important;
+      width:calc(50% - 8px) !important;
+      margin:0 !important;
+      padding:8px 6px !important;
+      box-sizing:border-box !important;
+      border-radius:12px !important;
+    }
+    /* Rimuovo eventuale altezza/min-height fissa */
+    #tabella > div:not(:has(#riepilogo-testo)){height:auto !important;min-height:unset !important;}
+    /* Titoli compatti */
+    #tabella > div:not(:has(#riepilogo-testo)) > div:first-child,
+    #tabella > div:not(:has(#riepilogo-testo)) h3{
+      font-size:15px !important;
+      line-height:1.2 !important;
+      margin:0 0 4px 0 !important;
+      text-align:left !important;
+    }
+  }
+  @media (max-width:360px){
+    #tabella > div:not(:has(#riepilogo-testo)){
+      flex:0 0 100% !important;
+      max-width:100% !important;
+      width:100% !important;
+    }
+  }`;
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+});
+</script>
 
 </body>
 </html>
