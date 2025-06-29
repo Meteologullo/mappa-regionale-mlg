@@ -6179,6 +6179,50 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
+
+<!-- === PATCH WIND JITTER v1 – 2025‑06‑29 === -->
+<script>
+(function(){
+  const TODAY = new Date().toISOString().split("T")[0];
+  if(typeof window.stableRand!=="function"){
+    window.stableRand=function(seed){
+      let h=2166136261>>>0;
+      for(let i=0;i<seed.length;i++){
+        h ^= seed.charCodeAt(i);
+        h = Math.imul(h,16777619);
+      }
+      return (h>>>0)/4294967296;
+    };
+  }
+  function windJitter(val, seed){
+    const num=parseFloat(val);
+    if(!Number.isFinite(num)) return val;
+    const r=window.stableRand(seed+TODAY);
+    const sign=r<0.5?-1:1;
+    // ±5 % o almeno ±0,2 km/h
+    const REL=0.12, MIN=0.5;
+    const amp=Math.max(MIN, num*REL);
+    const off=(0.3 + (r*0.8))*amp; // 0.2‑1.0 della ampiezza
+    return parseFloat((num + sign*off).toFixed(1));
+  }
+  // Patch funzione globale aggiungiMarker se presente
+  const retry=()=>{
+    if(typeof window.aggiungiMarker!=='function'){setTimeout(retry,500);return;}
+    if(window.aggiungiMarker.__patchedWindJitter) return;
+    const orig=window.aggiungiMarker;
+    window.aggiungiMarker=function(staz, obs){
+       if(obs){
+          if(obs.windSpeed!=null) obs.windSpeed=windJitter(obs.windSpeed, (staz.stationId||'')+'_ws');
+          if(obs.windGust!=null)  obs.windGust=windJitter(obs.windGust, (staz.stationId||'')+'_wg');
+       }
+       return orig.apply(this, arguments);
+    };
+    window.aggiungiMarker.__patchedWindJitter=true;
+  };
+  retry();
+})();
+</script>
+<!-- === /PATCH WIND JITTER === -->
 </body>
 </html>
 <script>
