@@ -2156,8 +2156,7 @@ window.addEventListener('load', () => {
 <button class="sidebar-btn" onclick="toggleRadar()" style="background-color: #444; color: white;" title="Radar/Satellite">RAD</button>
 <button class="sidebar-btn" onclick="location.reload();" style="background-color:#009688;color:white;" title="Ricarica pagina">REF</button>
 
-<button class="sidebar-btn" id="btnPlot" onclick="togglePlot()" style="background:#8b00ff;color:#fff" title="Interpolazione">PLOT</button>
-<button class="sidebar-btn" onclick="generaSnapshot()" style="background:#673ab7;color:#fff" title="Cattura e condividi">📸</button></div>
+<button class="sidebar-btn" id="btnPlot" onclick="togglePlot()" style="background:#8b00ff;color:#fff" title="Interpolazione">PLOT</button></div>
 <!-- Striscia con la scritta Meteo Lo Gullo -->
 <div id="banner">
   - Meteo Lo Gullo
@@ -5567,112 +5566,7 @@ if (capLines.length) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 
-<script>
-async function generaSnapshot () {
-  const mapEl = document.getElementById('map');
-  mapEl.style.position = 'relative';
 
-  /* Badge ---------------------------------------------------- */
-  const box = document.createElement('div');
-  box.id = 'snapshot-badge';
-  Object.assign(box.style, {
-    position:'absolute',top:'10px',left:'10px',
-    background:'rgba(0,0,0,0.55)',color:'#fff',
-    padding:'10px 12px',borderRadius:'10px',
-    font:'14px/1.4 Arial, sans-serif',zIndex:10000
-  });
-
-  const tMax   = Math.max(...datiTabella.map(d => d.tempVal));
-  const tMin   = Math.min(...datiTabella.map(d => d.tempVal));
-  const rafMax = Math.max(...datiTabella.map(d => d.raffica||0));
-  const rain   = Math.max(...datiTabella.map(d => d.pioggia||0));
-  const urMax  = Math.max(...datiTabella.map(d => d.umidita||0));
-  const now    = new Date();
-
-  box.innerHTML = `
-    <div style="font-weight:700;margin-bottom:4px">
-      Calabria – ${now.toLocaleDateString('it-IT')} ${now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
-    </div>
-    🌡️ Max&nbsp;${tMax.toFixed(1)}°C&nbsp;&nbsp;❄️ Min&nbsp;${tMin.toFixed(1)}°C<br>
-    💨 Raffica&nbsp;${rafMax} km/h&nbsp;&nbsp;🌧️ Pioggia&nbsp;${rain.toFixed(1)} mm<br>
-    🔵 UR&nbsp;${urMax}%`;
-  mapEl.appendChild(box);
-
-  /* Labels --------------------------------------------------- */
-  const labels = [];
-  datiTabella.forEach(d => {
-    const mk = markersById[d.stationId];
-    if (!mk) return;
-    const el = mk.getElement();
-    if (el) {
-      const lb = document.createElement('div');
-      lb.className = 'label-snap';
-      lb.textContent = (d.nome||'').split(' - ')[0];
-      lb.style.cssText = 'position:absolute;top:32px;left:50%;transform:translateX(-50%);font:11px/1 Arial;color:#fff;text-shadow:0 0 3px #000;';
-      el.appendChild(lb);
-      labels.push(lb);
-    }
-  });
-
-  /* Legend --------------------------------------------------- */
-  const legend = document.createElement('div');
-  legend.id = 'snap-legend';
-  Object.assign(legend.style,{
-    position:'absolute',bottom:'10px',left:'50%',transform:'translateX(-50%)',
-    width:'160px',height:'10px',borderRadius:'6px',
-    background:'linear-gradient(90deg,#0048ff 0%,#00c2ff 16%,#00ff73 32%,#ffea00 48%,#ff8c00 64%,#d70000 80%,#7b0000 100%)',
-    zIndex:10000
-  });
-  mapEl.appendChild(legend);
-
-  /* Textual summary ----------------------------------------- */
-  const riepilogo = (typeof generaRiepilogoGiornalistico === 'function') ? generaRiepilogoGiornalistico(datiTabella) : '';
-  if (riepilogo) {
-    const txt = document.createElement('div');
-    txt.id = 'snap-riepilogo';
-    txt.textContent = riepilogo;
-    Object.assign(txt.style,{
-      position:'absolute',bottom:'26px',left:'50%',transform:'translateX(-50%)',
-      background:'rgba(0,0,0,0.55)',color:'#fff',padding:'4px 8px',
-      font:'13px/1.3 Arial',borderRadius:'6px',textAlign:'center',
-      maxWidth:'90%',zIndex:10000
-    });
-    mapEl.appendChild(txt);
-  }
-
-  /* WOW: QR code -------------------------------------------- */
-  const qrWrap = document.createElement('div');
-  qrWrap.id = 'snap-qr';
-  Object.assign(qrWrap.style,{
-    position:'absolute',bottom:'10px',right:'10px',width:'88px',height:'88px',
-    background:'#fff',padding:'4px',borderRadius:'8px',zIndex:10000
-  });
-  mapEl.appendChild(qrWrap);
-  new QRCode(qrWrap, {text: window.location.href, width:80, height:80});
-
-  /* Screenshot ---------------------------------------------- */
-  const canvas = await html2canvas(mapEl,{useCORS:true, backgroundColor:null});
-  const blobURL = canvas.toDataURL('image/png');
-
-  /* Share or download --------------------------------------- */
-  if (navigator.share && /Android|iPhone|iPad/i.test(navigator.userAgent)) {
-    const file = await (await fetch(blobURL)).blob().then(b=>new File([b],'snap.png',{type:'image/png'}));
-    try { await navigator.share({title:'Snapshot Meteo', files:[file]}); }
-    catch(e){ /* fallback to download */ }
-  } 
-  const a = document.createElement('a');
-  a.download = `meteo_snapshot_${Date.now()}.png`;
-  a.href = blobURL;
-  a.click();
-
-  /* Cleanup -------------------------------------------------- */
-  labels.forEach(lb=>lb.remove());
-  legend.remove();
-  document.getElementById('snap-riepilogo')?.remove();
-  qrWrap.remove();
-  box.remove();
-}
-</script>
 
 
 <!-- === Custom per‑stazione label patch 2025‑06‑26 === -->
