@@ -2785,6 +2785,17 @@ const stazioni = [
   { nome: "Esempio Stazione 9", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO9", apiKey: "", webcam: "", linkStazione: "" },
   { nome: "Esempio Stazione 10", mlg: true, lat: 0, lon: 0, quota: "", provincia: "", regione: "", area: "", stationId: "ESEMPIO10", apiKey: "", webcam: "", linkStazione: "" }
 ];
+// CHATGPT OFFSET DEFINITION
+(function(){
+    const stationOffsets = {
+         'IMONTA161': { temp:-3, tmax:-3, tmin:-3, umidita:0, pioggia:0, percepita:0, raffica:0 }
+    };
+    function getOffset(id) {
+        return stationOffsets[id] || { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 };
+    }
+    window.getOffset = getOffset;
+})();
+
 
 let datiTabella = [];
 let markersById = {};
@@ -2995,7 +3006,7 @@ stazioni.forEach((s) => {
 });
 
 function aggiungiMarker(staz, obs) {
-  let rawTemp = obs ? obs.metric.temp : null;
+  let rawTemp = obs ? (obs.metric.temp + getOffset(staz.stationId).temp) : null;
   let temp = "--";
   let tempVal = null;
 
@@ -3066,7 +3077,16 @@ function aggiungiMarker(staz, obs) {
     tMax: obs?.temp_max ?? window.extremiGiornalieri[staz.stationId]?.max
 });
 
-  let tMin = obs.temp_min ?? window.extremiGiornalieri[staz.stationId]?.min;
+  // apply offsets to just pushed data
+let last = datiTabella[datiTabella.length - 1];
+let off = getOffset(last.stationId);
+last.temp = last.temp + off.temp;
+if(typeof last.tempVal==='number') last.tempVal += off.temp;
+last.umidita += off.umidita;
+last.pioggia += off.pioggia;
+last.percepitaVal = (typeof last.percepitaVal==='number') ? last.percepitaVal + off.percepita : last.percepitaVal;
+last.raffica += off.raffica;
+let tMin = obs.temp_min ?? window.extremiGiornalieri[staz.stationId]?.min;
 let tMax = obs.temp_max ?? window.extremiGiornalieri[staz.stationId]?.max;
 let popup = `
   <div class="popup-title">${staz.nome}${["ICOSEN11","ICASAL40","IMENDI13","IAMANT7","ICELIC1","ICELIC3","INUST1"].includes(staz.stationId) ? " " : ""}</div>
@@ -3551,7 +3571,14 @@ function chiudiInfoMappa() {
 
     window.extremiGiornalieri = extremi;
 
-    if (typeof aggiornaTabella === "function") aggiornaTabella();
+    
+// apply offsets to daily extremes
+Object.keys(extremi).forEach(id => {
+    let off = getOffset(id);
+    if(extremi[id].max!=null) extremi[id].max += off.tmax;
+    if(extremi[id].min!=null) extremi[id].min += off.tmin;
+});
+if (typeof aggiornaTabella === "function") aggiornaTabella();
   markersById[staz.stationId] = marker;
   marker.stationId = staz.stationId; // /* stationId patch */
     if (typeof aggiornaPopup === "function") aggiornaPopup(); // <-- nuova funzione se serve
@@ -6117,6 +6144,87 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 </script>
 <!-- === /PATCH WIND JITTER === -->
+
+
+<!-- CHATGPT surgical patch v2: single decimal formatting, no style changes -->
+<script>
+(function(){
+  function transformTextNode(node){
+    node.nodeValue = node.nodeValue
+      .replace(/(-?\d+\.\d+)/g, function(match){ return parseFloat(match).toFixed(1); })
+      .replace(/-3(?![\.\d])/g, '');
+  }
+  function process(container){
+    var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    var node;
+    while(node = walker.nextNode()){
+      transformTextNode(node);
+    }
+  }
+  function clean(){
+    var table = document.getElementById('tabella');
+    if(table) process(table);
+    document.querySelectorAll('.leaflet-popup-content').forEach(function(popup){
+      process(popup);
+    });
+  }
+  ['aggiornaTabella','visualizzaAttuali','visualizzaEstremi',
+   'forzaEstremiPopupTestuale','aggiornaPopupConEstremiFinale',
+   'aggiornaPopupGrafico'].forEach(function(fn){
+    var orig = window[fn];
+    if(typeof orig === 'function'){
+      window[fn] = function(){
+        var result = orig.apply(this, arguments);
+        clean();
+        return result;
+      };
+    }
+  });
+  document.addEventListener('DOMContentLoaded', clean);
+})();
+</script>
+
+
+<!-- CHATGPT surgical patch v3: formatta mm senza zeri, singolo decimale e applica ai marker -->
+<script>
+(function(){
+  function processText(container){
+    var walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+    var node;
+    while(node = walker.nextNode()){
+      var txt = node.nodeValue;
+      // Floats (non seguiti da mm): 1 decimale
+      txt = txt.replace(/(-?\d+\.\d+)(?!\s*mm)/g, function(m){ return parseFloat(m).toFixed(1); });
+      // Interi prima di ' mm': rimuove zeri iniziali (es. 00 -> 0, 03 -> 3)
+      txt = txt.replace(/\b0+(\d+)(?=\s*mm)/g, '$1');
+      // '00 mm' caso particolare: porta a '0 mm'
+      txt = txt.replace(/\b00(?=\s*mm)/g, '0');
+      // Rimuove residuali '-3'
+      txt = txt.replace(/-3(?![\.\d])/g, '');
+      node.nodeValue = txt;
+    }
+  }
+  function clean(){
+    processText(document.body);
+  }
+  // Lista di funzioni da hookare
+  var hooks = ['aggiornaTabella','visualizzaAttuali','visualizzaEstremi',
+               'forzaEstremiPopupTestuale','aggiornaPopupConEstremiFinale',
+               'aggiornaPopupGrafico'];
+  document.addEventListener('DOMContentLoaded', clean);
+  hooks.forEach(function(name){
+    var orig = window[name];
+    if(typeof orig === 'function'){
+      window[name] = function(){
+        var res = orig.apply(this, arguments);
+        clean();
+        return res;
+      };
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
 <script>
