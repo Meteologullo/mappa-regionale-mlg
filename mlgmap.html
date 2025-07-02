@@ -3,94 +3,39 @@
 <html lang="it">
 <head>
 <style id="hideMarkerOpacity">.leaflet-marker-icon,.leaflet-marker-shadow{opacity:0;transition:opacity 0.15s linear;}</style>
-
 <meta charset="utf-8"/>
 <title>Mappa Meteo Calabria</title>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
 <link href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" rel="stylesheet"/>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyDasXnVu7uIEjpwtQ-XbVilREGmAZSBjVE",
-    authDomain: "meteo-estremami.firebaseapp.com",
-    projectId: "meteo-estremami",
-    storageBucket: "meteo-estremami.firebasestorage.app",
-    messagingSenderId: "469441159034",
-    appId: "1:469441159034:web:b687adef4a7a742499c0c3"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  
-window.getExtremesFromFirebase = async function (stationId) {
-    const q = query(collection(db, "osservazioni"), where("stationId", "==", stationId));
-    const snapshot = await getDocs(q);
-    let min = Infinity, max = -Infinity;
-    snapshot.forEach(doc => {
-        const raw = doc.data().temperatura;
-        const temp = (typeof raw === 'number') ? raw : parseFloat(raw);
-        if (!Number.isFinite(temp)) return;
-        if (temp < min) min = temp;
-        if (temp > max) max = temp;
-
-
-function visualizzaPioggia() {
-  datiTabella.forEach((d) => {
-    const marker = markersById[d.stationId];
-    if (typeof d.pioggia !== 'undefined' && marker) {
-      const el = marker.getElement();
-      if (el) {
-        const mm = parseFloat(d.pioggia) || 0;
-        const colore = getColorPioggia(mm);
-
-        // testo sempre leggibile
-        const textColor = getTextColorForBackground(colore);
-        const shadow = textColor === 'white'
-          ? '0 0 3px rgba(0,0,0,0.7)'
-          : '0 0 3px rgba(255,255,255,0.7)';
-
-        el.innerHTML = `<span style="color:${textColor};font-weight:bold;font-size:12px;text-shadow:${shadow};">${mm.toFixed(1)}</span>`;
-        el.style.backgroundColor = colore;
-        el.style.width = '48px';
-        el.style.height = '48px';
-        el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
-        el.style.borderRadius = '50%';
-      }
-    }
-  });
-}
-
-  });
-}
-
-
 async function caricaDatiOpenMeteo() {
-  for (const stazione of stazioni.filter(s => s.openMeteo)) {
-    try {
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`);
-      const data = await res.json();
-      datiTabella.push({
+  const richieste = stazioni
+    .filter(s => s.openMeteo)
+    .map(stazione => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${stazione.lat}&longitude=${stazione.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`)
+      .then(res => res.json())
+      .then(data => ({
         stationId: stazione.stationId,
         temp: data.current.temperature_2m,
         tempVal: data.current.temperature_2m,
         pioggia: data.current.precipitation,
         umidita: data.current.relativehumidity_2m,
         raffica: data.current.wind_gusts_10m,
-        percepita: (function(){const v = calcolaPercepita(data.current.temperature_2m, data.current.relativehumidity_2m, data.current.wind_speed_10m);return v!=null?v.toFixed(1):"--";})(),
+        percepita: (() => {
+          const v = calcolaPercepita(data.current.temperature_2m, data.current.relativehumidity_2m, data.current.wind_speed_10m);
+          return v != null ? v.toFixed(1) : "--";
+        })(),
         percepitaVal: calcolaPercepita(data.current.temperature_2m, data.current.relativehumidity_2m, data.current.wind_speed_10m),
-      });
-    } catch (e) {
-      console.error("Errore nel fetch OpenMeteo per", stazione.stationId, e);
-    }
-  }
-}
+      }))
+      .catch(e => {
+        console.error("Errore nel fetch OpenMeteo per", stazione.stationId, e);
+        return null;
+      })
+    );
 
+  const risultati = await Promise.all(richieste);
+  datiTabella.push(...risultati.filter(r => r !== null));
+}
 </script>
 <script>
 window.extremiGiornalieri = {}; // rimosso statico
@@ -1740,7 +1685,7 @@ html, body {
     }
   }
 </style>
-<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet"/><script defer defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<link href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" rel="stylesheet"/><script defer="" src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <style id="webcam_amantea_fix">
 /* Popup clipping */
 .leaflet-popup-content{overflow:hidden;}
@@ -1756,7 +1701,6 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
   display:block;
 }
 </style>
-
 <style id="mobile-popup-shrink">
 /* Popup stazioni: versione compatta per telefoni */
 @media (max-width: 520px){
@@ -1775,7 +1719,6 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
   .popup-data{ font-size: 12px !important; }
 }
 </style>
-
 <style id="mobile-popup-nowrap">
 /* Pop‑up stazioni: no wrap ma dimensione moderata su schermi piccoli */
 @media (max-width: 520px){
@@ -1795,28 +1738,7 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
   }
 }
 </style>
-
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!-- Infocard v8 -->
 <style id="infocard-upgrade">
 /* identical CSS as v7 */
@@ -1833,8 +1755,6 @@ iframe.webcam-preview[src*="webcam_spiaggia_pulita"]{
 @media(max-width:550px){#tabella{gap:12px;}#tabella > div:not(:has(#riepilogo-testo)){flex:0 0 calc(50% - 12px);max-width:none;min-width:150px;}#tabella .main-metric{font-size:1.5rem!important;}}
 body{background:#f4f7fc!important;}
 </style>
-
-
 <!-- ChatGPT patch: ensure two cards per row also on small screens -->
 <style id="chatgpt-mobile-2col">
 @media (max-width: 600px){
@@ -1847,8 +1767,6 @@ body{background:#f4f7fc!important;}
   }
 }
 </style>
-
-
 <!-- ChatGPT patch v6: force minimum two cards per row on very small screens -->
 <style id="chatgpt-mobile-2col-v6">
 @media (max-width: 640px){
@@ -1860,8 +1778,6 @@ body{background:#f4f7fc!important;}
   }
 }
 </style>
-
-
 <!-- ChatGPT patch v7: enforce two cards per row on mobile using CSS Grid -->
 <style id="chatgpt-mobile-grid-v7">
   @media (max-width: 640px){
@@ -1879,8 +1795,6 @@ body{background:#f4f7fc!important;}
     }
   }
 </style>
-
-
 <!-- ChatGPT patch v8: final mobile two-column layout and uniform card sizing -->
 <style id="chatgpt-mobile-grid-v8">
 @media (max-width: 640px){
@@ -1900,8 +1814,6 @@ body{background:#f4f7fc!important;}
   }
 }
 </style>
-
-
 <!-- ChatGPT patch v9: refine mobile grid and card uniformity -->
 <style id="chatgpt-mobile-grid-v9">
 @media (max-width: 640px){
@@ -1937,8 +1849,6 @@ body{background:#f4f7fc!important;}
   }
 }
 </style>
-
-
 <!-- ChatGPT patch v10: remove header‑content gap, harmonize first card, tighten grid -->
 <style id="chatgpt-mobile-grid-v10">
 @media (max-width: 640px){
@@ -1961,8 +1871,6 @@ body{background:#f4f7fc!important;}
   }
 }
 </style>
-
-
 <!-- ChatGPT patch v11: fix title‑data gap, uniform card layout, make riepilogo full‑width -->
 <style id="chatgpt-mobile-grid-v11">
 @media (max-width: 640px){
@@ -2010,8 +1918,6 @@ body{background:#f4f7fc!important;}
   }
 }
 </style>
-
-
 <!-- ChatGPT patch v12: zero title-gap, tighter metric spacing, consistent card style -->
 <style id="chatgpt-mobile-grid-v12">
 @media (max-width:640px){
@@ -2034,8 +1940,6 @@ body{background:#f4f7fc!important;}
   }
 }
 </style>
-
-
 <!-- ChatGPT uniform-card-patch v2 -->
 <script id="uniform-card-patch-js">
 window.addEventListener('load', () => {
@@ -2130,7 +2034,6 @@ window.addEventListener('load', () => {
   document.head.appendChild(style);
 });
 </script>
-
 </head>
 <body>
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
@@ -2155,7 +2058,6 @@ window.addEventListener('load', () => {
 <button class="sidebar-btn" onclick="filtraSoloMLG()" style="background-color: #222; color: white;" title="Solo MLG">MLG</button>
 <button class="sidebar-btn" onclick="toggleRadar()" style="background-color: #444; color: white;" title="Radar/Satellite">RAD</button>
 <button class="sidebar-btn" onclick="location.reload();" style="background-color:#009688;color:white;" title="Ricarica pagina">REF</button>
-
 <button class="sidebar-btn" id="btnPlot" onclick="togglePlot()" style="background:#8b00ff;color:#fff" title="Interpolazione">PLOT</button></div>
 <!-- Striscia con la scritta Meteo Lo Gullo -->
 <div id="banner">
@@ -2217,8 +2119,8 @@ window.addEventListener('load', () => {
 <option value="freddo">Stazione più fredda (live)</option>
 <option value="raffica">Raffiche</option>
 <option value="pioggia">Pioggia</option>
-    <option value="tmax">T. max più alta</option>
-    <option value="tmin">T. min più bassa</option>
+<option value="tmax">T. max più alta</option>
+<option value="tmin">T. min più bassa</option>
 </select>
 <label class="mlg-label-small">
 <input id="filtro-mlg" onchange="aggiornaTabella()" type="checkbox"/>
@@ -2427,7 +2329,8 @@ function calcolaPercepita(T, RH, V) {
   }
 
   // Sopra usiamo l’Heat‑Index (afa)
-  return calcolaHeatIndex_C(T, RH);
+  const hi = calcolaHeatIndex_C(T, RH);
+  return hi != null ? hi : T;
 }
 
 
@@ -2788,8 +2691,59 @@ const stazioni = [
 // CHATGPT OFFSET DEFINITION
 (function(){
     const stationOffsets = {
-         'IMONTA161': { temp:-3, tmax:-3, tmin:-3, umidita:0, pioggia:0, percepita:0, raffica:0 }
-    };
+    'IMONTA161': { temp:-3, tmax:-3, tmin:-3, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    
+    // 'IBIANC4': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ICOSEN11': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'IAMANT7': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ICELIC3': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ICOSEN20': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'IMENDI13': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ICASAL40': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'INUST1': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'CATCENTRO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'REGCENTRO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ROSSCENTRO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'VIBOPORO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'LOCRIMARINA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SGFIORE': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'CROPOR': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'LAMSANTEUF': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SCALEACENTRO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'TAVSILAPIC': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ISOCAPORIZ': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'CIROMARINA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'CARIATI': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'PETILIA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'TROPEA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'GERACE': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SPEZSILA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'PAOLA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'BELVEDERE': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'MORMANNO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SOVERATO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'PALMI': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SERRASTRETTA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SSSEVERINA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'BADO_MARINA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'DELIANUOVA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'RENDE_QUATTR': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'LUZZI_PETRINI': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'LUZZI_CENTRO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'LATTARICO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ROTA_GRECA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'LATTARICO_PIRETTO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'CASSANO_IONIO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SIBARI': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'TERRANOVA_SIBARI': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'TARSIA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'ROGGIANO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'SANPIETRO_GUARANO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'MARANO_MARCH': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'CAROLEI': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'DIPIGNANO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    // 'MANGONE': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+};;
     function getOffset(id) {
         return stationOffsets[id] || { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 };
     }
@@ -3030,7 +2984,13 @@ function aggiungiMarker(staz, obs) {
     temp = tempVal.toFixed(1);
   }
 
-  let um = obs ? obs.humidity || "-" : "-";
+  
+  // Skip marker if station has no valid data (null/NaN or 0.0 offline reading)
+  if (tempVal === null || isNaN(tempVal) || tempVal === 0) {
+    return; // do not add marker for offline station
+  }
+
+let um = obs ? obs.humidity || "-" : "-";
   let vento = obs ? obs.windSpeed || "-" : "-";
   let raffica = obs ? obs.windGust || "-" : "-";
   let pioggia = obs ? obs.metric.precipTotal || "0" : "-";
@@ -3591,13 +3551,7 @@ if (typeof aggiornaTabella === "function") aggiornaTabella();
   window.addEventListener("load", caricaEstremiDaFirebase);
 </script>
 <!-- Firebase App (the core Firebase SDK) -->
-
-
-
 <!-- Firebase compat + Calcolo estremo client-side -->
-
-
-
 <script>// Ordinamento Tmax e Tmin sulla tabella
 document.addEventListener("DOMContentLoaded", () => {
   const header = document.querySelector("table thead tr");
@@ -4494,7 +4448,7 @@ if(window.map){
   };
 })();
 </script>
-<!-- <!-- ===== PATCH OFFSET MLG v2  – 2025‑05‑23 ===== --> -->
+<!-- <!-- ===== PATCH OFFSET MLG v2  – 2025‑05‑23 ===== --> --&gt;
 <!-- <script> -->
 <!-- (function () { -->
 <!--   // ► raccogli gli ID delle stazioni MLG non appena "stazioni" è disponibile -->
@@ -4509,7 +4463,7 @@ if(window.map){
 <!--   } else { -->
 <!--     popolaMlgSet(); -->
 <!--   } -->
-<!--  -->
+<!-- -->
 <!--   // ► jitter casuale ±0,2 ÷ 0,4 °C per valori tondi -->
 <!--   function jitter_(v){
   const num = parseFloat(v);
@@ -4527,7 +4481,7 @@ if(window.map){
   const sign = rand < 0.5 ? -1 : 1;
   return parseFloat((num + sign*off).toFixed(1));
 } -->
-<!--  -->
+<!-- -->
 <!--   // ► applica l'offset ad {min,max} di ciascuna stazione MLG -->
 <!--   function applicaOffset(obj) { -->
 <!--     if (!obj || typeof obj !== "object") return; -->
@@ -4541,7 +4495,7 @@ if(window.map){
 <!--       } -->
 <!--     } -->
 <!--   } -->
-<!--  -->
+<!-- -->
 <!--   /* ----------------------------------------------- -->
 <!--      SETTER/GUARDIA su window.extremiGiornalieri -->
 <!--      --------------------------------------------- */ -->
@@ -4555,12 +4509,12 @@ if(window.map){
 <!--       applicaOffset(_extremi); -->
 <!--     } -->
 <!--   }); -->
-<!--  -->
+<!-- -->
 <!--   // ► un secondo passaggio dopo che il DOM è pronto, per sicurezza -->
 <!--   document.addEventListener("DOMContentLoaded", () => applicaOffset(window.extremiGiornalieri)); -->
 <!-- })(); -->
 <!-- </script> -->
-<!-- <!-- ===== FINE PATCH OFFSET MLG v2 ===== --> -->
+<!-- <!-- ===== FINE PATCH OFFSET MLG v2 ===== --> --&gt;
 <!-- ===== PATCH JITTER MLG v8 (safe timer) ===== -->
 <script>
 (function(){
@@ -4944,8 +4898,6 @@ if(window.map){
   setInterval(applicaEstremi, 3000);
 })();
 </script>
-
-
 <script>
 /* Disabilita il plugin Leaflet‑Gesture‑Handling per consentire il pan con un solo dito */
 document.addEventListener('DOMContentLoaded', () => {
@@ -4957,8 +4909,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
-
-
 <!-- *** Riepilogo migliorato 2025-06-06 by ChatGPT *** -->
 <script>
 function generaRiepilogoGiornalistico(dati){
@@ -5026,13 +4976,6 @@ if (capLines.length) {
   return testo;
 }
 </script>
-
-
-
-
-
-
-
 <!-- ===== PATCH DECIMALI MLG v11 – 2025‑06‑06 ===== -->
 <script>
 (function(){
@@ -5125,8 +5068,6 @@ if (capLines.length) {
 })();
 </script>
 <!-- ===== FINE PATCH DECIMALI MLG v11 ===== -->
-
-
 <!-- === PATCH: visibilità griglia (v7 - anti‑overlap + pulsante ORD) === -->
 <script>
 (function() {
@@ -5262,7 +5203,6 @@ if (capLines.length) {
     });
 })();
 </script>
-
 <!-- === Patch: small link to bigger webcam image (Amantea Spiaggia) === -->
 <script id="webcam_big_link_patch">
 (function(){
@@ -5300,8 +5240,6 @@ if (capLines.length) {
   }
 })();
 </script>
-
-
 <script id="indicator_patch">
 (function(){
   function setIndicator(text){
@@ -5340,8 +5278,6 @@ if (capLines.length) {
   }
 })();
 </script>
-
-
 <script id="extremi_popup_fix">
 (function(){
   function approxEqualLatLng(a, b){
@@ -5395,8 +5331,6 @@ if (capLines.length) {
   document.addEventListener('DOMContentLoaded', init);
 })();
 </script>
-
-
 <!-- === Patch WU offset & wind – ChatGPT 2025‑06‑25‑C === -->
 <script id="wu_offset_wind_patch">
 (function(){
@@ -5526,8 +5460,6 @@ if (capLines.length) {
 })();
 </script>
 <!-- === /Patch WU offset & wind === -->
-
-
 <!-- ===== PATCH DECIMALI WU v12 – 2025-06-25 ===== -->
 <script>
 (function(){
@@ -5587,17 +5519,10 @@ if (capLines.length) {
 })();
 </script>
 <!-- ===== END PATCH DECIMALI WU v12 ===== -->
-
-
 <!-- Snapshot & QR libraries -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-
-
-
-
+<script defer="" src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script defer="" src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- === Custom per‑stazione label patch 2025‑06‑26 === -->
-
 <script id="custom_station_label">
 (function(){
   /* --- helpers ------------------------------------------------------- */
@@ -5685,17 +5610,9 @@ if (capLines.length) {
   }
 })();
 </script>
-
-
-
-
-
-
-
-
 <!-- PATCH PERFORMANCE v3 (2025‑06‑27): caching, dynamic concurrency, timeout, preconnect, lazy CSS -->
-<link rel="preconnect" href="https://api.open-meteo.com">
-<script id="perf-patch-v3" defer>
+<link href="https://api.open-meteo.com" rel="preconnect"/>
+<script defer="" id="perf-patch-v3">
 (() => {
   /* ---------- CONFIG ---------- */
   const HARDWARE_CORES = navigator.hardwareConcurrency || 8;
@@ -5790,8 +5707,6 @@ if (capLines.length) {
   };
 })();
 </script>
-
-
 <script>
 function calcolaWindChill_C_safe(t, v){
   if(t==null||v==null||isNaN(t)||isNaN(v)||v<2) return null;
@@ -5799,7 +5714,6 @@ function calcolaWindChill_C_safe(t, v){
   return Math.round(wci*10)/10;
 }
 </script>
-
 <!-- Snapshot share-friendly modern skin -->
 <style id="snapshot_mobile_modern">
 @media (max-width:700px){
@@ -5863,7 +5777,6 @@ function calcolaWindChill_C_safe(t, v){
   }
 }
 </style>
-
 <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 <script>
 /* ========= Interpolazione regionale (PLOT) ========= */
@@ -5952,28 +5865,6 @@ function calcolaWindChill_C_safe(t, v){
   }
 })();
 </script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <!-- Infocard v10 JS -->
 <script id="infocard-upgrade-js">
 (function(){
@@ -6023,8 +5914,6 @@ function calcolaWindChill_C_safe(t, v){
   window.addEventListener('load',()=>setTimeout(upgradeCards,0));
 })();
 </script>
-
-
 <!-- ChatGPT patch: color square metric according to selected filter -->
 <script id="chatgpt-metric-color">
 (function(){
@@ -6051,8 +5940,6 @@ function calcolaWindChill_C_safe(t, v){
   window.addEventListener('load', ()=>setTimeout(recolor,0));
 })();
 </script>
-
-
 <!-- Mobile card compact patch v4 by ChatGPT 2025‑06‑27 -->
 <script id="chatgpt-mobile-compact-20250627-v4">
 /* Inseriamo il CSS alla fine del caricamento per sovrascrivere qualsiasi regola successiva */
@@ -6099,8 +5986,6 @@ document.addEventListener('DOMContentLoaded', function () {
   document.head.appendChild(style);
 });
 </script>
-
-
 <!-- === PATCH WIND JITTER v1 – 2025‑06‑29 === -->
 <script>
 (function(){
@@ -6144,8 +6029,6 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 </script>
 <!-- === /PATCH WIND JITTER === -->
-
-
 <!-- CHATGPT surgical patch v2: single decimal formatting, no style changes -->
 <script>
 (function(){
@@ -6183,8 +6066,6 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('DOMContentLoaded', clean);
 })();
 </script>
-
-
 <!-- CHATGPT surgical patch v3: formatta mm senza zeri, singolo decimale e applica ai marker -->
 <script>
 (function(){
@@ -6224,7 +6105,134 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 })();
 </script>
+<!-- === FAST-LOAD PATCH 2025-07-02 === -->
+<script id="fastload_20250702">
+(() => {
+  /* ───────────────────────────────────────────────────────────── *
+   *  Parametri regolabili
+   * ───────────────────────────────────────────────────────────── */
+  const MAX_CONCURRENT   = 24;                 // fetch paralleli
+  const MAX_CACHE_AGE_MS = 10 * 60 * 1e3;      // 10 min cache
+  const FETCH_TIMEOUT_MS = 8000;               // 8 s timeout
+  const CACHE_PREFIX     = "OMcache_v2_";
 
+  /* fade‑in delicato dei marker quando TUTTO è pronto */
+  const revealMarkers = () => {
+    const hider = document.getElementById("hideMarkerOpacity");
+    if (hider) hider.remove();                 // toglie opacity:0
+    if (!document.getElementById("smoothMarkerOpacity")) {
+      const css = document.createElement("style");
+      css.id = "smoothMarkerOpacity";
+      css.textContent = ".leaflet-marker-icon{transition:opacity .35s ease;}";
+      document.head.appendChild(css);
+    }
+  };
+
+  /* ───────────────────────────────────────────────────────────── *
+   *  1) Open‑Meteo: override con fetch concorrente + cache
+   * ───────────────────────────────────────────────────────────── */
+  if (typeof window.caricaDatiOpenMeteo === "function") {
+    /* helpers ---------------------------------------------------- */
+    const key = s => \`\${CACHE_PREFIX}\${s.stationId}\`;
+    const loadCache = s => {
+      try {
+        const raw = localStorage.getItem(key(s));
+        if (!raw) return null;
+        const { ts, data } = JSON.parse(raw);
+        return (Date.now() - ts < MAX_CACHE_AGE_MS) ? data : null;
+      } catch { return null; }
+    };
+    const saveCache = (s, data) => {
+      try {
+        localStorage.setItem(key(s), JSON.stringify({ ts: Date.now(), data }));
+      } catch { /* quota piena: ignora */ }
+    };
+    const buildEntry = (s, d) => ({
+      stationId    : s.stationId,
+      temp         : d.current.temperature_2m,
+      tempVal      : d.current.temperature_2m,
+      pioggia      : d.current.precipitation,
+      umidita      : d.current.relativehumidity_2m,
+      raffica      : d.current.wind_gusts_10m,
+      percepitaVal : (typeof calcolaPercepita === "function")
+                       ? calcolaPercepita(d.current.temperature_2m,
+                                          d.current.relativehumidity_2m,
+                                          d.current.wind_speed_10m)
+                       : null
+    });
+
+    /* fetch singolo con timeout + cache ------------------------- */
+    async function fetchStazione(s) {
+      const cached = loadCache(s);
+      if (cached) return buildEntry(s, cached);
+
+      const ctrl = new AbortController();
+      const tId  = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const q = \`latitude=\${s.lat}&longitude=\${s.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&timezone=auto\`;
+        const url = \`https://api.open-meteo.com/v1/forecast?\${q}\`;
+        const r   = await fetch(url, { signal: ctrl.signal });
+        if (!r.ok) throw new Error(r.status);
+        const data = await r.json();
+        saveCache(s, data);
+        return buildEntry(s, data);
+      } finally { clearTimeout(tId); }
+    }
+
+    /* override --------------------------------------------------- */
+    window.caricaDatiOpenMeteo = async () => {
+      const lista = (window.stazioni || []).filter(x => x.openMeteo);
+      const queue = [...lista];
+      window.datiTabella = window.datiTabella || [];
+
+      /* worker pool concorrente ---------------------------------- */
+      const workers = Array.from(
+        { length: Math.min(MAX_CONCURRENT, queue.length) },
+        async () => {
+          while (queue.length) {
+            const staz = queue.shift();
+            try {
+              const entry = await fetchStazione(staz);
+              window.datiTabella.push(entry);
+              /* marker aggiunto ma resta invisibile finché non riveliamo */
+              if (typeof window.aggiungiMarker === "function") {
+                window.aggiungiMarker(staz, { metric: { temp: entry.tempVal }});
+              }
+            } catch (e) {
+              console.warn("Open-Meteo timeout/skipped:", staz.stationId, e);
+            }
+          }
+        }
+      );
+
+      /* aspetta tutti i worker poi rivela in un colpo solo ------- */
+      await Promise.allSettled(workers);
+      revealMarkers();
+
+      /* refresh tabella se presente ----------------------------- */
+      if (typeof window.aggiornaTabella === "function") window.aggiornaTabella();
+    };
+  }
+
+  /* ───────────────────────────────────────────────────────────── *
+   *  2)  Weather Underground: chiamate in idle
+   * ───────────────────────────────────────────────────────────── */
+  if (typeof window.fetch === "function" && window.requestIdleCallback) {
+    const _origWU = window.fetch;
+    window.fetch = function(url, opts) {
+      if (typeof url === "string" && url.includes("/v2/pws/observations/current")) {
+        return new Promise((resolve, reject) => {
+          requestIdleCallback(() =>
+            _origWU(url, opts).then(resolve).catch(reject)
+          , { timeout: 10000 });
+        });
+      }
+      return _origWU(url, opts);
+    };
+  }
+})();
+</script>
+<!-- === /FAST-LOAD PATCH 2025-07-02 === -->
 </body>
 </html>
 <script>
