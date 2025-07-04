@@ -3053,7 +3053,7 @@ let popup = `
   <div class="popup-sub">${staz.provincia} • ${staz.regione} • ${staz.quota} • ${staz.area}</div>
   <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
   <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
-  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${staz.percepita ?? "--"}°C</div>
+  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${percepita}°C</div>
   <div class="popup-data"><span class="bold">Cond. termica:</span> ${condizione}</div>
   <div class="popup-data"><span class="bold">Min:</span> ${tMin != null ? tMin + "°C" : "--"} / <span class="bold">Max:</span> ${tMax != null ? tMax + "°C" : "--"}</div>
   <div class="popup-data"><span class="bold">Vento:</span> ${vento} km/h / <span class="bold">Raffica:</span> ${raffica} km/h</div>
@@ -4004,7 +4004,7 @@ function aggiornaPopupConEstremiFinale() {
       <div class="popup-sub">${[staz.provincia, staz.regione, staz.quota ? `${staz.quota} m` : null, staz.area].filter(v => v && v !== "undefined").join(" • ")}</div>
       <div class="popup-data"><span class="bold">Temp:</span> ${temp}°C</div>
       <div class="popup-data"><span class="bold">Umidità:</span> ${um}%</div>
-  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${staz.percepita ?? "--"}°C</div>
+  <div class="popup-data"><span class="bold">Temp. percepita:</span> ${percepita}°C</div>
       <div class="popup-data"><span class="bold">Cond. termica:</span> ${condizione}</div>
       <div class="popup-data"><span class="bold">Min:</span> ${tMin} / <span class="bold">Max:</span> ${tMax}</div>
       <div class="popup-data"><span class="bold">Vento:</span> ${vento} km/h / <span class="bold">Raffica:</span> ${raffica} km/h</div>
@@ -6233,6 +6233,102 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 </script>
 <!-- === /FAST-LOAD PATCH 2025-07-02 === -->
+<!-- FAST-LOAD VIEWPORT PATCH 2025-07-04 -->
+<script id="fastload_viewport_20250704">
+(() => {
+  if (!window.map || !Array.isArray(window.stazioni)) return;
+
+  /* ===== Configurazione ===== */
+  const CACHE_PREFIX     = 'OMvp_';
+  const CACHE_MS         = 10 * 60 * 1e3;               // 10 minuti
+  const TIMEOUT_MS       = 8000;                        // 8 s timeout
+  const MAX_CONCURRENT   = Math.min(16, (navigator.hardwareConcurrency || 8) * 2);
+  const PAD_FACTOR       = 0.20;                        // bbox padding 20 %
+
+  /* ===== Helpers cache ===== */
+  const key   = s => CACHE_PREFIX + s.stationId;
+  const load  = s => { try {
+      const raw = localStorage.getItem(key(s));
+      if(!raw) return null;
+      const obj = JSON.parse(raw);
+      return (Date.now() - obj.ts < CACHE_MS) ? obj.data : null;
+  } catch { return null; } };
+  const save  = (s,d) => { try {
+      localStorage.setItem(key(s), JSON.stringify({ts: Date.now(), data:d}));
+  } catch(_){} };
+
+  /* ===== Build entry compatibile con datiTabella ===== */
+  const build = (s,d)=>({
+     stationId : s.stationId,
+     temp      : d.current.temperature_2m,
+     tempVal   : d.current.temperature_2m,
+     pioggia   : d.current.precipitation,
+     umidita   : d.current.relativehumidity_2m,
+     raffica   : d.current.wind_gusts_10m,
+     percepitaVal : (typeof calcolaPercepita==='function')
+                    ? calcolaPercepita(d.current.temperature_2m,
+                                       d.current.relativehumidity_2m,
+                                       d.current.wind_speed_10m)
+                    : null
+  });
+
+  /* ===== Coda concorrente ===== */
+  const queue = [];
+  let running = 0;
+  const scheduled = new Set();
+
+  async function fetchStazione(s){
+     const cached = load(s);
+     if(cached){ window.datiTabella.push(build(s,cached)); return; }
+
+     const ctrl = new AbortController();
+     const toId = setTimeout(()=>ctrl.abort(), TIMEOUT_MS);
+     try{
+        const q = `latitude=${s.lat}&longitude=${s.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&timezone=auto`;
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?${q}`, {signal: ctrl.signal});
+        if(!r.ok) throw new Error(r.status);
+        const data = await r.json();
+        save(s,data);
+        window.datiTabella.push(build(s,data));
+     }catch(e){ console.warn('viewport patch skip', s.stationId, e?.message||e); }
+     finally{ clearTimeout(toId); }
+  }
+
+  function worker(){
+     if(running>=MAX_CONCURRENT || queue.length===0) return;
+     running++;
+     fetchStazione(queue.shift()).finally(()=>{ running--; worker(); });
+  }
+
+  function enqueue(list){
+     list.forEach(s=>{
+         if(!s.openMeteo || scheduled.has(s.stationId)) return;
+         scheduled.add(s.stationId);
+         queue.push(s);
+     });
+     while(running < MAX_CONCURRENT && queue.length) worker();
+  }
+
+  /* ===== Selezione stazioni nel viewport + padding ===== */
+  function visibili(){
+     const b = map.getBounds();
+     const padLat = (b.getNorth() - b.getSouth()) * PAD_FACTOR;
+     const padLng = (b.getEast() - b.getWest()) * PAD_FACTOR;
+     const south = b.getSouth() - padLat;
+     const north = b.getNorth() + padLat;
+     const west  = b.getWest()  - padLng;
+     const east  = b.getEast()  + padLng;
+     return window.stazioni.filter(s => s.lat>=south && s.lat<=north && s.lon>=west && s.lon<=east);
+  }
+
+  map.whenReady(()=>{
+     enqueue(visibili());                    // batch iniziale
+     map.on('moveend zoomend', () => enqueue(visibili()));
+  });
+
+})();
+</script>
+<!-- /FAST-LOAD VIEWPORT PATCH 2025-07-04 -->
 </body>
 </html>
 <script>
