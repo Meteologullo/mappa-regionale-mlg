@@ -6329,6 +6329,163 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 </script>
 <!-- /FAST-LOAD VIEWPORT PATCH 2025-07-04 -->
+
+<!-- *** Patch ChatGPT 2025-07-04: ripristino Tmin/Tmax nei popup *** -->
+
+<script id="patch-estremi-giornalieri-0704">
+(function(){
+  /* Ritorna estremo min/max per stationId */
+  function getEstremoGiornaliero(stationId, tipo){
+     const ext = window.extremiGiornalieri && window.extremiGiornalieri[stationId];
+     if(!ext) return NaN;
+     const v = (tipo==='max' ? ext.max : ext.min);
+     const n = parseFloat(v);
+     return Number.isFinite(n) ? n : NaN;
+  }
+  window.getEstremoGiornaliero = getEstremoGiornaliero;
+
+  /* Sincronizza r.tMin / r.tMax dentro datiTabella */
+  function syncDati(){
+     if(!Array.isArray(window.datiTabella) || !window.extremiGiornalieri) return;
+     window.datiTabella.forEach(r=>{
+        const ext = window.extremiGiornalieri[r.stationId];
+        if(ext){
+          r.tMin = ext.min;
+          r.tMax = ext.max;
+        }
+     });
+  }
+  document.addEventListener('DOMContentLoaded', syncDati);
+  setInterval(syncDati, 60000); // ogni minuto
+
+  /* Aggiorna i popup quando vengono aperti */
+  function patchPopup(){
+      const m = window.map || window.mymap;
+      if(!m){ setTimeout(patchPopup,500); return; }
+      m.on('popupopen', e=>{
+         const popupEl = e.popup && e.popup.getElement && e.popup.getElement();
+         if(!popupEl) return;
+         const contentEl = popupEl.querySelector('.leaflet-popup-content') || popupEl;
+         const stationId = e.popup._source && e.popup._source.stationId;
+         if(!stationId) return;
+         const ext = window.extremiGiornalieri && window.extremiGiornalieri[stationId];
+         if(!ext) return;
+         const minTxt = (ext.min!=null && ext.min!=='--') ? ext.min + '°C' : '--';
+         const maxTxt = (ext.max!=null && ext.max!=='--') ? ext.max + '°C' : '--';
+
+         /* Rimuovi eventuali righe duplicate collocate fuori dal content wrapper */
+         popupEl.querySelectorAll('.popup-data.temp-minmax').forEach(el=>{
+            if(!contentEl.contains(el)) el.remove();
+         });
+
+         /* Trova riga esistente all'interno del contenuto */
+         let row = contentEl.querySelector('.popup-data.temp-minmax');
+         if(!row){
+           /* Se presente una riga con Min: / Max: la aggiorniamo */
+           row = Array.from(contentEl.querySelectorAll('.popup-data'))
+                      .find(el=>/Min:/i.test(el.textContent) && /Max:/i.test(el.textContent));
+         }
+         if(!row){
+           row = document.createElement('div');
+           row.className = 'popup-data temp-minmax';
+           contentEl.appendChild(row);
+         }
+         row.innerHTML = '<span class="bold">Min:</span> ' + minTxt + ' / <span class="bold">Max:</span> ' + maxTxt;
+      });
+  }
+  patchPopup();
+})();
+</script>
+
+
+
+<!-- *** Patch ChatGPT 2025-07-04: recupero Tmin/Tmax via Open‑Meteo per stazioni con valori mancanti *** -->
+<script id="patch-estremi-openmeteo-0704">
+(function(){
+  const MISSING = v => v==null || v==="--" || (typeof v==="number" && !isFinite(v));
+
+  async function fetchDailyMinMax(lat, lon){
+      try{
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const min = data.daily?.temperature_2m_min?.[0] ?? null;
+        const max = data.daily?.temperature_2m_max?.[0] ?? null;
+        return {min, max};
+      }catch(e){
+        console.warn("Open‑Meteo extremi error", e);
+        return {min:null,max:null};
+      }
+  }
+
+  const stazioniById = (window.stazioni || []).reduce((acc,s)=>{acc[s.stationId]=s;return acc;}, {});
+
+  async function fillMissing(){
+     if(!Array.isArray(window.datiTabella)) return;
+     // gather promises per station
+     const promises = [];
+     window.datiTabella.forEach(r=>{
+        if(MISSING(r.tMin) || MISSING(r.tMax)){
+           promises.push((async()=>{
+             const staz = stazioniById[r.stationId];
+             if(!staz) return;
+             const {min,max} = await fetchDailyMinMax(staz.lat, staz.lon);
+             if(!MISSING(min) && !MISSING(max)){
+                // aggiorna strutture
+                r.tMin = min;
+                r.tMax = max;
+                window.extremiGiornalieri = window.extremiGiornalieri || {};
+                window.extremiGiornalieri[r.stationId] = {min,max};
+             }
+           })());
+        }
+     });
+     await Promise.all(promises);
+  }
+
+  // esegui subito, poi ripeti ogni 10 minuti per sicurezza
+  document.addEventListener('DOMContentLoaded', fillMissing);
+  setInterval(fillMissing, 600000);
+})();
+</script>
+
+
+<!-- *** Patch ChatGPT 2025-07-04b: mostra Tmin/Tmax nella riga originale del popup *** -->
+<script id="patch-estremi-popup-0704b">
+(function(){
+  function formatVal(v){ return (v!=null && v!=="--") ? v + "°C" : "--"; }
+
+  function updatePopup(popup){
+     const popupEl = popup && popup.getElement && popup.getElement();
+     if(!popupEl) return;
+     const stationId = popup._source && popup._source.stationId;
+     if(!stationId) return;
+     const ext = window.extremiGiornalieri && window.extremiGiornalieri[stationId];
+     if(!ext) return;
+     // trova la riga già esistente "Min:"
+     const rows = popupEl.querySelectorAll('.popup-data');
+     rows.forEach(row=>{
+        if(/Min:/i.test(row.textContent)){
+            row.innerHTML = '<span class="bold">Min:</span> ' + formatVal(ext.min) +
+                            ' / <span class="bold">Max:</span> ' + formatVal(ext.max);
+        }
+     });
+  }
+
+  function attach(){
+     const m = window.map || window.mymap || window.leafletMap;
+     if(!m){ setTimeout(attach,500); return; }
+     m.on('popupopen', e=> updatePopup(e.popup));
+     // esposizione pubblica cosí caricaEstremiDaFirebase può richiamarlo
+     window.aggiornaPopup = function(){
+        if(!m._popup) return;
+        updatePopup(m._popup);
+     };
+  }
+  attach();
+})();
+</script>
+
 </body>
 </html>
 <script>
