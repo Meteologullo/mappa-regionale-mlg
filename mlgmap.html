@@ -6583,64 +6583,39 @@ if (typeof visualizzaEstremi === 'function'){
 }
 
 // Main generator
-
-/* ==== Screenshot button: toggle overlay (mobile-friendly) – patched 2025-07-07 ==== */
-let __overlayInstance = null;
 function generaScreenshot(){
   const mapEl = document.getElementById('map');
-  if(!mapEl) { console.warn('map element not found'); return; }
+  if(!mapEl){ alert('Mappa non trovata'); return; }
 
-  // If overlay exists remove (toggle off)
-  if(__overlayInstance && __overlayInstance.parentNode){
-      __overlayInstance.remove();
-      __overlayInstance = null;
-      return;
-  }
-
-  // Build overlay
+  // Build overlay card
   const overlay = document.createElement('div');
-  __overlayInstance = overlay;
   overlay.id = 'screenshotOverlay';
-  overlay.innerHTML = (typeof buildOverlayHTML==='function') ? buildOverlayHTML() : '<div style="padding:8px">Overlay</div>';
+  overlay.style.position = 'absolute';
+  overlay.style.top = '10px';
+  overlay.style.left = '10px';
+  overlay.style.zIndex = '9999';
+  overlay.style.background = 'rgba(255,255,255,0.94)';
+  overlay.style.border = '2px solid #1a3a9b';
+  overlay.style.borderRadius = '10px';
+  overlay.style.padding = '12px 16px';
+  overlay.style.fontFamily = 'Arial, sans-serif';
+  overlay.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+  overlay.innerHTML = buildOverlayHTML();
+  mapEl.appendChild(overlay);
 
-  // Common style
-  Object.assign(overlay.style,{
-    background:'rgba(255,255,255,0.94)',
-    border:'2px solid #1a3a9b',
-    borderRadius:'12px',
-    padding:'12px 16px',
-    fontFamily:'Arial, sans-serif',
-    boxShadow:'0 4px 12px rgba(0,0,0,0.2)',
-    zIndex:'9999'
+  html2canvas(mapEl, {useCORS:true, backgroundColor:null}).then(canvas=>{
+      overlay.remove();
+      // Trigger download
+      const link = document.createElement('a');
+      link.download = 'CalabriaWeather_'+ new Date().toISOString().slice(0,10)+'.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+  }).catch(e=>{
+      console.error('html2canvas error', e);
+      overlay.remove();
+      alert('Errore nella generazione dello screenshot');
   });
-
-  const isMobile = window.innerWidth <= 600;
-
-  if(isMobile){
-      // Compute offset from sidebar
-      const sidebar = document.getElementById('sidebar');
-      const sidebarWidth = sidebar ? sidebar.getBoundingClientRect().width : 0;
-      const pad = 8;
-      const available = window.innerWidth - sidebarWidth - pad*2;
-      const overlayWidth = Math.min(available, Math.floor(window.innerWidth*0.92));
-      overlay.style.position = 'fixed';
-      overlay.style.width = overlayWidth + 'px';
-      overlay.style.maxHeight = '45vh';
-      overlay.style.overflowY = 'auto';
-      overlay.style.bottom = 'calc(env(safe-area-inset-bottom) + 64px)';
-      overlay.style.left = (sidebarWidth + pad + (available - overlayWidth)/2) + 'px';
-  }else{
-      overlay.style.position = 'absolute';
-      overlay.style.top = '12px';
-      overlay.style.right = '12px';
-      overlay.style.maxWidth = '320px';
-      overlay.style.pointerEvents = 'auto';
-  }
-
-  // Append
-  (isMobile ? document.body : mapEl).appendChild(overlay);
 }
-
 
 // Build overlay inner HTML
 function buildOverlayHTML(){
@@ -6916,6 +6891,97 @@ window.calcolaTop10 = function(){
 })();
 </script>
 <!-- === /WU FASTLOAD VIEWPORT PATCH === -->
+
+<!-- ChatGPT overlay mobile v3 2025-07-07 -->
+<style id="overlay-mobile-v3-css">
+#screenshotOverlay{
+  background:rgba(255,255,255,0.85);
+  backdrop-filter:blur(6px);
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.1);
+  padding:14px 16px 18px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.2);
+  font-family:"Helvetica Neue",Arial,sans-serif;
+  z-index:9999;
+  max-width:420px;
+}
+#screenshotOverlay .close-btn{
+  position:absolute;
+  top:6px;
+  right:10px;
+  font-size:20px;
+  font-weight:bold;
+  cursor:pointer;
+  color:#333;
+}
+@media(max-width:600px){
+  #screenshotOverlay{
+    width:auto;
+    max-height:40vh;
+  }
+  #screenshotOverlay div{font-size:15px;}
+}
+</style>
+<script id="overlay-mobile-v3">
+(function(){
+  if(window.__overlayV3) return;
+  window.__overlayV3 = true;
+  const MOBILE_MAX = 650; // px
+  const OFFSET_BANNER = 56; // spazio sopra toolbar Safari
+
+  window.generaScreenshot = function(){
+    const mapEl = document.getElementById('map');
+    if(!mapEl) return;
+
+    let overlay = document.getElementById('screenshotOverlay');
+    if(overlay){
+        overlay.remove();
+        return;
+    }
+
+    overlay = document.createElement('div');
+    overlay.id = 'screenshotOverlay';
+    overlay.className = 'top10-overlay';
+
+    const close = document.createElement('div');
+    close.className = 'close-btn';
+    close.textContent = '\u00D7';
+    close.onclick = ()=>overlay.remove();
+    overlay.appendChild(close);
+
+    // contenuto
+    overlay.insertAdjacentHTML('beforeend',
+      (typeof buildOverlayHTML==='function' ? buildOverlayHTML() : '<div>Overlay</div>')
+    );
+
+    // calcola offset sinistro dopo sidebar
+    const sidebar = document.getElementById('sidebar');
+    const rect = sidebar ? sidebar.getBoundingClientRect() : {width:0,left:0};
+    const leftStart = rect.width + 12;
+
+    if(window.innerWidth <= MOBILE_MAX){
+        Object.assign(overlay.style,{
+           position:'fixed',
+           left: leftStart+'px',
+           right:'10px',
+           bottom:`calc(env(safe-area-inset-bottom) + ${OFFSET_BANNER}px)`
+        });
+    }else{
+        Object.assign(overlay.style,{
+           position:'absolute',
+           top:'10px',
+           right:'10px'
+        });
+    }
+
+    overlay.style.overflowY = 'auto';
+
+    mapEl.appendChild(overlay);
+  };
+})();
+</script>
+<!-- /overlay mobile v3 -->
+
 </body>
 </html>
 <script>
