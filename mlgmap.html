@@ -6892,63 +6892,80 @@ window.calcolaTop10 = function(){
 </script>
 <!-- === /WU FASTLOAD VIEWPORT PATCH === -->
 
-<!-- ChatGPT Screenshot-toggle patch 2025-07-07 -->
-<script id="screenshot-toggle-patch">
+<!-- ChatGPT overlay-mobile patch 2025-07-07 -->
+<script id="screenshot-toggle-patch-mobile">
 (function () {
-  if (window.__screenshotTogglePatch) return;          // avoid double injection
-  window.__screenshotTogglePatch = true;
+  if (window.__screenshotTogglePatchMobile) return;
+  window.__screenshotTogglePatchMobile = true;
 
-  let overlayEl = null;                                // global reference
+  const MOBILE_MAX = 600;         // px
+  const SIDEBAR_PADDING = 12;     // px
 
-  // Override: show/hide overlay
+  function getSidebarWidth() {
+    const sb = document.querySelector('.leaflet-control-container .leaflet-left');
+    if (sb) return sb.getBoundingClientRect().width || 0;
+    return 0;
+  }
+
+  /* toggle overlay ON/OFF */
   window.generaScreenshot = function () {
     const mapEl = document.getElementById('map');
     if (!mapEl) return;
 
-    // If overlay exists: remove (toggle off)
-    if (overlayEl && overlayEl.parentNode) {
-      overlayEl.remove();
-      overlayEl = null;
+    let overlay = document.getElementById('screenshotOverlay');
+    if (overlay) {
+      overlay.remove();
       return;
     }
 
-    // Otherwise create overlay (toggle on)
-    overlayEl = document.createElement('div');
-    overlayEl.id = 'screenshotOverlay';
-    overlayEl.className = 'top10-overlay';
-    overlayEl.innerHTML =
+    overlay = document.createElement('div');
+    overlay.id = 'screenshotOverlay';
+    overlay.className = 'top10-overlay';
+    overlay.innerHTML =
       typeof buildOverlayHTML === 'function'
         ? buildOverlayHTML()
         : '<div style="padding:8px">Overlay</div>';
 
-    // Responsive placement
-    if (window.innerWidth <= 600) {
-      // mobile: fixed bottom center
-      Object.assign(overlayEl.style, {
+    const sideW = getSidebarWidth() + SIDEBAR_PADDING;
+
+    if (window.innerWidth <= MOBILE_MAX) {
+      Object.assign(overlay.style, {
         position: 'fixed',
-        bottom: '10px',
-        left: '50%',
-        right: 'auto',
-        top: 'auto',
-        transform: 'translateX(-50%)',
-        width: '90vw',
-        maxHeight: '60vh',
-        zIndex: 9999
+        bottom: '12px',
+        left: sideW + 'px',
+        right: '12px',
+        transform: 'none',
+        width: 'auto',
+        maxWidth: 'calc(100vw - ' + (sideW + 24) + 'px)',
+        maxHeight: '50vh',
+        overflowY: 'auto',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+        backdropFilter: 'blur(6px)',
+        zIndex: 9999,
+        pointerEvents: 'auto'
       });
     } else {
-      // desktop: absolute top right
-      Object.assign(overlayEl.style, {
+      Object.assign(overlay.style, {
         position: 'absolute',
         top: '10px',
         right: '10px',
-        zIndex: 9999
+        maxHeight: '80vh',
+        overflowY: 'auto',
+        zIndex: 9999,
+        pointerEvents: 'auto'
       });
     }
 
-    mapEl.appendChild(overlayEl);
+    overlay.addEventListener('click', function (e) {
+      e.stopPropagation();      // non far “passare” il click alla mappa
+    });
+
+    mapEl.appendChild(overlay);
   };
 })();
 </script>
+
 </body>
 </html>
 <script>
