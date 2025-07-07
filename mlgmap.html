@@ -6891,6 +6891,64 @@ window.calcolaTop10 = function(){
 })();
 </script>
 <!-- === /WU FASTLOAD VIEWPORT PATCH === -->
+
+<!-- ChatGPT Screenshot-toggle patch 2025-07-07 -->
+<script id="screenshot-toggle-patch">
+(function () {
+  if (window.__screenshotTogglePatch) return;          // avoid double injection
+  window.__screenshotTogglePatch = true;
+
+  let overlayEl = null;                                // global reference
+
+  // Override: show/hide overlay
+  window.generaScreenshot = function () {
+    const mapEl = document.getElementById('map');
+    if (!mapEl) return;
+
+    // If overlay exists: remove (toggle off)
+    if (overlayEl && overlayEl.parentNode) {
+      overlayEl.remove();
+      overlayEl = null;
+      return;
+    }
+
+    // Otherwise create overlay (toggle on)
+    overlayEl = document.createElement('div');
+    overlayEl.id = 'screenshotOverlay';
+    overlayEl.className = 'top10-overlay';
+    overlayEl.innerHTML =
+      typeof buildOverlayHTML === 'function'
+        ? buildOverlayHTML()
+        : '<div style="padding:8px">Overlay</div>';
+
+    // Responsive placement
+    if (window.innerWidth <= 600) {
+      // mobile: fixed bottom center
+      Object.assign(overlayEl.style, {
+        position: 'fixed',
+        bottom: '10px',
+        left: '50%',
+        right: 'auto',
+        top: 'auto',
+        transform: 'translateX(-50%)',
+        width: '90vw',
+        maxHeight: '60vh',
+        zIndex: 9999
+      });
+    } else {
+      // desktop: absolute top right
+      Object.assign(overlayEl.style, {
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        zIndex: 9999
+      });
+    }
+
+    mapEl.appendChild(overlayEl);
+  };
+})();
+</script>
 </body>
 </html>
 <script>
