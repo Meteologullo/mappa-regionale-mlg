@@ -6982,6 +6982,103 @@ window.calcolaTop10 = function(){
 </script>
 <!-- /overlay mobile v3 -->
 
+
+<!-- ChatGPT overlay mobile v4 2025-07-07 -->
+<style id="overlay-mobile-v4-css">
+#screenshotOverlay{
+  background:rgba(255,255,255,0.85);
+  backdrop-filter:blur(6px);
+  border-radius:12px;
+  border:1px solid rgba(0,0,0,0.12);
+  padding:14px 16px 18px;
+  box-shadow:0 8px 18px rgba(0,0,0,0.25);
+  overflow-y:auto;
+  z-index:9999;
+}
+#screenshotOverlay .close-btn{
+  position:absolute;
+  top:6px;
+  right:10px;
+  font-size:22px;
+  font-weight:bold;
+  cursor:pointer;
+  color:#333;
+}
+@media (max-width:650px){
+    #screenshotOverlay{
+        max-height:40vh;
+        max-width:420px;
+        width:auto;
+    }
+    #screenshotOverlay div{font-size:15px;}
+}
+</style>
+
+<script id="overlay-mobile-v4-js">
+(function(){
+  if(window.__overlayMobileV4) return;
+  window.__overlayMobileV4 = true;
+
+  const MOBILE_MAX = 650; // px
+  const OFFSET_BOTTOM = 72; // spazio sopra toolbar Safari
+
+  window.generaScreenshot = function(){
+      const mapEl = document.getElementById('map');
+      if(!mapEl) return;
+
+      let overlay = document.getElementById('screenshotOverlay');
+      if(overlay){
+          overlay.remove();
+          return;
+      }
+
+      overlay = document.createElement('div');
+      overlay.id = 'screenshotOverlay';
+      overlay.className = 'top10-overlay';
+
+      // pulsante chiusura
+      const close = document.createElement('div');
+      close.className = 'close-btn';
+      close.textContent = '\u00D7';
+      close.onclick = ()=>overlay.remove();
+      overlay.appendChild(close);
+
+      // contenuto dinamico
+      overlay.insertAdjacentHTML('beforeend',
+          (typeof buildOverlayHTML==='function' ? buildOverlayHTML() : '<div>Overlay</div>')
+      );
+
+      // Calcolo posizionamento mobile
+      if(window.innerWidth <= MOBILE_MAX){
+          const sidebar = document.getElementById('sidebar');
+          const rect = sidebar ? sidebar.getBoundingClientRect() : {width:0,left:0};
+          const leftStart = rect.width + 12;
+
+          // larghezza massima disponibile
+          const availW = window.innerWidth - leftStart - 12;
+          const cardW = Math.min(420, availW);
+          Object.assign(overlay.style,{
+              position:'fixed',
+              left:leftStart+'px',
+              width: cardW+'px',
+              bottom:`calc(env(safe-area-inset-bottom) + ${OFFSET_BOTTOM}px)`
+          });
+      }else{
+          // desktop
+          Object.assign(overlay.style,{
+              position:'absolute',
+              top:'10px',
+              right:'10px',
+              maxWidth:'420px'
+          });
+      }
+
+      mapEl.appendChild(overlay);
+  };
+})();
+</script>
+<!-- /overlay mobile v4 -->
+
 </body>
 </html>
 <script>
