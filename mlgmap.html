@@ -2095,6 +2095,140 @@ window.addEventListener('load', () => {
     }
   }
 </style>
+
+<!-- ChatGPT FASTLOAD v2 2025-07-11 -->
+<script type="module" id="fastload-20250711-v2">
+(() => {
+  const OM_MAX = 8;
+  const WU_MAX = 4;
+  const TIMEOUT = 12000;
+  const CACHE_MS = 10 * 60e3;
+
+  /* -------------------------------------------------
+   *  Utility
+   * ------------------------------------------------- */
+  const ready = fn => {
+    if (document.readyState === "complete" || document.readyState === "interactive") { fn(); }
+    else document.addEventListener("DOMContentLoaded", fn, { once:true });
+  };
+
+  /* -------------------------------------------------
+   * 1. Open‑Meteo  hook (waits for original function)
+   * ------------------------------------------------- */
+  ready(() => {
+    const waitHook = () => {
+      if (typeof window.caricaDatiOpenMeteo !== "function" || !Array.isArray(window.stazioni)) return false;
+
+      const key = s => 'om_' + s.stationId;
+      const read = s => {
+        try {
+          const j = localStorage.getItem(key(s));
+          if (!j) return null;
+          const { ts, data } = JSON.parse(j);
+          return Date.now() - ts < CACHE_MS ? data : null;
+        } catch { return null; }
+      };
+      const save = (s,d) => { try {localStorage.setItem(key(s), JSON.stringify({ts:Date.now(), data:d}));}catch{}; };
+
+      const build = (s,d)=>({
+        stationId:s.stationId,
+        temp:d.current.temperature_2m,
+        tempVal:d.current.temperature_2m,
+        pioggia:d.current.precipitation,
+        umidita:d.current.relativehumidity_2m,
+        raffica:d.current.wind_gusts_10m,
+        percepitaVal:(typeof calcolaPercepita==="function")
+          ? calcolaPercepita(d.current.temperature_2m,d.current.relativehumidity_2m,d.current.wind_speed_10m)
+          : null
+      });
+
+      async function fetchOM (s){
+        const cached = read(s);
+        if (cached) return build(s,cached);
+
+        const ctrl = new AbortController();
+        const t = setTimeout(()=>ctrl.abort(), TIMEOUT);
+        try{
+          const url = \`https://api.open-meteo.com/v1/forecast?latitude=\${s.lat}&longitude=\${s.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&timezone=auto\`;
+          const r = await fetch(url,{signal:ctrl.signal});
+          if(!r.ok) throw new Error(r.status);
+          const data = await r.json();
+          save(s,data);
+          return build(s,data);
+        }finally{ clearTimeout(t); }
+      }
+
+      const orig = window.caricaDatiOpenMeteo;
+      window.caricaDatiOpenMeteo = async () => {
+        const list = window.stazioni.filter(st => st.openMeteo);
+        const it = list[Symbol.iterator]();
+        window.datiTabella = window.datiTabella || [];
+        let running = 0;
+        return new Promise(res=>{
+          const next = () => {
+            if (running>=OM_MAX) return;
+            const {value:st,done} = it.next();
+            if(done){ if(running===0) res(); return; }
+            running++;
+            fetchOM(st)
+              .then(e=>{ if(e) window.datiTabella.push(e); })
+              .catch(err=>console.warn("OM err",st?.stationId,err))
+              .finally(()=>{ running--; next(); });
+            if(running<OM_MAX) next();
+          };
+          next();
+        });
+      };
+      console.info("Fastload‑v2: caricaDatiOpenMeteo hooked");
+      return true;
+    };
+    if (!waitHook()) {
+      const id = setInterval(() => { if (waitHook()) clearInterval(id); }, 50);
+    }
+  });
+
+  /* -------------------------------------------------
+   * 2. Weather Underground fetch queue + cache
+   * ------------------------------------------------- */
+  (function(){
+    const origFetch = window.fetch;
+    const q = [];
+    let running = 0;
+    const key=id=>'wu_'+id;
+    const read=id=>{ try{const j=sessionStorage.getItem(key(id));if(!j)return null;const {ts,data}=JSON.parse(j);return Date.now()-ts<CACHE_MS?data:null;}catch{return null;} };
+    const save=(id,d)=>{ try{sessionStorage.setItem(key(id),JSON.stringify({ts:Date.now(),data:d}));}catch{} };
+
+    const schedule = req => {
+      q.push(req);
+      pump();
+    };
+    const pump = ()=>{
+      if(running>=WU_MAX || !q.length) return;
+      const {url, opts, resolve, reject, id} = q.shift();
+      running++;
+      origFetch(url,opts).then(r=>{
+        if(id){
+          r.clone().json().then(d=>save(id,d)).catch(()=>{});
+        }
+        resolve(r);
+      }).catch(reject).finally(()=>{running--;pump();});
+    };
+
+    window.fetch = function(url,opts){
+      if(typeof url === "string" && url.includes("/v2/pws/observations/current")){
+        const id = /stationId=([A-Z0-9]+)/i.exec(url)?.[1];
+        const cached = id && read(id);
+        if(cached){
+          return Promise.resolve(new Response(JSON.stringify(cached),{status:200,headers:{'Content-Type':'application/json'}}));
+        }
+        return new Promise((res,rej)=>schedule({url,opts,resolve:res,reject:rej,id}));
+      }
+      return origFetch(url,opts);
+    };
+  })();
+})();
+</script>
+
 </head>
 <body>
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
@@ -7079,6 +7213,235 @@ window.calcolaTop10 = function(){
 </script>
 <!-- /overlay mobile v4 -->
 
+<!-- ChatGPT overlay mobile v5 – 08 lug 2025 -->
+<style id="overlay-mobile-v5-css">
+/* eventuale ritocco cosmetic (facoltativo) */
+@media (max-width:650px){
+  #screenshotOverlay{
+    max-width:420px !important;   /* limite hard */
+  }
+}
+</style>
+
+<script id="overlay-mobile-v5-js">
+(() => {
+  if (window.__overlayMobileV5) return;      /* patch singola */
+  window.__overlayMobileV5 = true;
+
+  const MOBILE_MAX   = 650;  /* breakpoint */
+  const OFFSET_BOTTOM= 72;   /* spazio sopra la toolbar di Safari/iOS */
+  const SIDE_MARGIN  = 10;   /* margine destro fisso */
+  const EXTRA_MARGIN = 24;   /* margine dopo la sidebar */
+  const MAX_WIDTH    = 420;  /* larghezza massima card */
+
+  /* larghezza sidebar + margine extra */
+  const leftStart = () => {
+    const sb = document.getElementById('sidebar');
+    return (sb ? sb.getBoundingClientRect().width : 0) + EXTRA_MARGIN;
+  };
+
+  /* **sovrascrive** la funzione già esistente */
+  window.generaScreenshot = function () {
+    const mapEl = document.getElementById('map');
+    if (!mapEl) return;
+
+    /* se l’overlay è già aperto lo chiude */
+    let ov = document.getElementById('screenshotOverlay');
+    if (ov) { ov.remove(); return; }
+
+    /* crea l’overlay */
+    ov = document.createElement('div');
+    ov.id        = 'screenshotOverlay';
+    ov.className = 'top10-overlay';
+
+    /* pulsante chiusura */
+    const close = document.createElement('div');
+    close.className = 'close-btn';
+    close.textContent = '×';
+    close.onclick = () => ov.remove();
+    ov.appendChild(close);
+
+    /* contenuto dinamico */
+    ov.insertAdjacentHTML(
+      'beforeend',
+      typeof buildOverlayHTML === 'function' ? buildOverlayHTML() : '<div>Overlay</div>'
+    );
+
+    /* — Layout mobile — */
+    if (window.innerWidth <= MOBILE_MAX) {
+      const avail = window.innerWidth - leftStart() - SIDE_MARGIN;
+      const w = Math.min(MAX_WIDTH, avail);
+
+      /* posizionamento e dimensioni con !important */
+      ov.style.setProperty('position', 'fixed');
+      ov.style.setProperty('left',  leftStart() + 'px');
+      ov.style.setProperty('right', SIDE_MARGIN + 'px');
+      ov.style.setProperty('width', w + 'px', 'important');
+      ov.style.setProperty('bottom',
+        `calc(env(safe-area-inset-bottom) + ${OFFSET_BOTTOM}px)`
+      );
+    }
+    /* — Layout desktop — */
+    else {
+      Object.assign(ov.style, {
+        position : 'absolute',
+        top      : '10px',
+        right    : '10px',
+        maxWidth : MAX_WIDTH + 'px'
+      });
+    }
+
+    ov.style.overflowY = 'auto';
+    mapEl.appendChild(ov);
+  };
+})();
+</script>
+
+
+
+<!-- === Overlay width fix with JS injection === -->
+<script id="overlay-width-fix-js">
+document.addEventListener('DOMContentLoaded', function() {
+    var style = document.createElement('style');
+    style.textContent = `
+        #screenshotOverlay {
+            max-width: 280px !important;
+            width: auto !important;
+            overflow-wrap: anywhere !important;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+
+<!-- === Rain reconcile patch 2025‑07‑11 v11 (no auto‑switch, instant marker) === -->
+<script id="rain_reconcile_20250711_v11">
+(function(){
+  if(globalThis.__rainReconcile) return;
+  globalThis.__rainReconcile = true;
+
+  const MAX_DIST_KM=7, WEIGHT=0.5, FAST=2000, SAFE=60000;
+  const toRad=d=>d*Math.PI/180;
+  const dist=(a,b,c,d)=>{const R=6371,dl=toRad(c-a),dn=toRad(d-b);const A=Math.sin(dl/2)**2+Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(A));};
+
+  const getG=()=>{try{if(typeof datiTabella==='undefined'||typeof stazioni==='undefined'||typeof markersById==='undefined')return null;return{datiTabella,stazioni,markersById};}catch(_){return null;}};
+
+  const blend=(om,wu)=>+((om+WEIGHT*(wu-om)).toFixed(1));
+
+  /* ---- Popup helpers ---- */
+  const updatePopupRow=(popup,val)=>{
+    const el=popup.getElement(); if(!el) return;
+    el.querySelectorAll('.popup-data').forEach(n=>{
+      if(/Pioggia:/i.test(n.textContent)){
+        n.innerHTML='<span class="bold">Pioggia:</span> '+val+' mm';
+      }
+    });
+  };
+  const patchPopup=popup=>{
+    const src=popup._source, sid=src&&src.stationId, g=getG(); if(!sid||!g) return;
+    const r=g.datiTabella.find(x=>x.stationId===sid); if(!r) return;
+    const val=Number.isFinite(+r.pioggia)?(+r.pioggia).toFixed(1):'0.0';
+    updatePopupRow(popup,val);
+  };
+
+  /* ---- Reconcile ---- */
+  let firstFix=false;
+  const reconcile=()=>{
+    const g=getG(); if(!g) return;
+    const {datiTabella,stazioni,markersById}=g;
+
+    const meta=Object.create(null);
+    stazioni.forEach(s=>meta[s.stationId]=s);
+
+    const wuRows=datiTabella.filter(r=>{const m=meta[r.stationId];return m&&!m.openMeteo&&Number.isFinite(+r.pioggia);});
+
+    let changed=false;
+    datiTabella.forEach(r=>{
+      const m=meta[r.stationId]; if(!m||!m.openMeteo) return;
+      if(r.__pioggiaOrig==null) r.__pioggiaOrig=Number.isFinite(+r.pioggia)?+r.pioggia:0;
+      const om=r.__pioggiaOrig;
+
+      let near=null,best=1e9;
+      for(const w of wuRows){
+        const wm=meta[w.stationId]; if(!wm) continue;
+        const d=dist(m.lat,m.lon,wm.lat,wm.lon);
+        if(d<best){best=d;near=w;}
+      }
+      if(!near||best>MAX_DIST_KM) return;
+
+      const newVal=blend(om,+near.pioggia||0);
+      if(newVal!==r.pioggia){r.pioggia=newVal; changed=true;}
+      const mk=markersById[r.stationId];
+      if(mk&&mk.options) mk.options.pioggiaFix=newVal;
+    });
+
+    if(!changed) return;
+    firstFix=true;
+
+    if(typeof aggiornaTabella==='function') aggiornaTabella();
+
+    // if rain view is currently active, refresh markers without toggling views
+    if(isRainActive() && typeof window.__rain_refreshMarkers==='function') window.__rain_refreshMarkers();
+
+    if(typeof map!=='undefined'){
+      map.eachLayer(l=>{ if(l&&l.isPopupOpen&&l.isPopupOpen()) patchPopup(l.getPopup()); });
+    }
+  };
+
+  /* ---- Detect if rain view active and refresh markers ---- */
+  const isRainActive = ()=> !!document.querySelector('.sidebar-btn.attivo[onclick*="visualizzaPioggia"]');
+
+  // We'll inject a light wrapper around the original visualizzaPioggia once it's defined
+  const wrapVis = ()=>{
+    const fn=window.visualizzaPioggia;
+    if(typeof fn!=='function' || fn.__rainWrapped) return;
+    window.visualizzaPioggia=function(...a){
+      reconcile();           // ensure latest numbers BEFORE drawing
+      return fn.apply(this,a);
+    };
+    window.visualizzaPioggia.__rainWrapped=true;
+    // Expose a helper to refresh markers without changing state
+    window.__rain_refreshMarkers = fn.bind(window);
+  };
+
+  /* ---- Hook push only once ---- */
+  const hookPush=arr=>{
+    if(!Array.isArray(arr)||arr.__rainHooked) return;
+    const orig=arr.push.bind(arr);
+    arr.push=function(...it){const res=orig(...it);setTimeout(reconcile,0);return res;};
+    arr.__rainHooked=true;
+  };
+
+  /* ---- Boot ---- */
+  const boot=()=>{
+    const g=getG(); if(!g){setTimeout(boot,300);return;}
+    hookPush(g.datiTabella);
+    reconcile();
+
+    // wrap vis function once ready
+    if(typeof window.visualizzaPioggia==='function') wrapVis();
+    else{
+      const tm=setInterval(()=>{
+        if(typeof window.visualizzaPioggia==='function'){ clearInterval(tm); wrapVis(); }
+      },200);
+    }
+
+    if(typeof map!=='undefined'){
+      map.off('popupopen',globalThis.__rainPopupHook);
+      globalThis.__rainPopupHook=e=>patchPopup(e.popup);
+      map.on('popupopen',globalThis.__rainPopupHook);
+    }
+
+    const retry=setInterval(()=>{
+      reconcile();
+      if(firstFix){ clearInterval(retry); setInterval(reconcile,SAFE); }
+    },FAST);
+  };
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
 </body>
 </html>
 <script>
