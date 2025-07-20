@@ -2,6 +2,10 @@
 
 <html lang="it">
 <head>
+<!-- Performance hints: preconnect -->
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
 <style id="hideMarkerOpacity">.leaflet-marker-icon,.leaflet-marker-shadow{opacity:0;transition:opacity 0.15s linear;}</style>
 <meta charset="utf-8"/>
 <title>Mappa Meteo Calabria</title>
@@ -2229,8 +2233,57 @@ window.addEventListener('load', () => {
 })();
 </script>
 
+
+<style id="map-loader-style">
+  #map.loading {
+    filter: blur(2px);
+    opacity: 0.4;
+    pointer-events: none;
+    transition: opacity 0.5s ease, filter 0.5s ease;
+  }
+
+  #map-loader-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 16px 24px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.15);
+    font-family: sans-serif;
+  }
+
+  #map-loader-banner .spinner {
+    width: 24px;
+    height: 24px;
+    border: 4px solid #ccc;
+    border-top-color: #1a3a9b;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  #map-loader-banner.hide {
+    display: none;
+  }
+</style>
+
 </head>
 <body>
+
+<div id="map-loader-banner">
+  <div class="spinner"></div>
+  <div>Caricamento mappa...</div>
+</div>
+
 <div id="radar-controls" style="position: fixed; top: 120px; right: 10px; z-index: 2147483647; background: white; border-radius: 8px; padding: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.4); display: none; font-family: sans-serif;">
 <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
 <button onclick="playRadar()" title="Avvia animazione">▶️</button>
@@ -2262,7 +2315,7 @@ window.addEventListener('load', () => {
 <div id="radar-controls-container">
 <div id="radar-time-label" style="margin-top: 4px; font-size: 12px; color: #333; text-align: center;"></div>
 </div>
-<div id="map" style="">
+<div id="map" class="loading" style="">
 </div>
 <button onclick="playRadar()" style="margin-right: 5px;">▶️</button>
 <button onclick="stopRadar()" style="margin-right: 5px;">⏹️</button>
@@ -2887,11 +2940,11 @@ const stazioni = [
 // CHATGPT OFFSET DEFINITION
 (function(){
     const stationOffsets = {
-    'IMONTA161': { temp:0, tmax:+1, tmin:-3, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'IMONTA161': { temp:0, tmax:-1, tmin:-3, umidita:0, pioggia:0, percepita:0, raffica:0 },
     
-    // 'IBIANC4': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    // 'ICOSEN11': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    // 'IAMANT7': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'BOTTE_DONATO': { temp:0, tmax:-2, tmin:-2, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'MONTE_CURCIO': { temp:-1, tmax:-4, tmin:-1, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'CAMIGLIATELLO_SILANO': { temp:+2, tmax:+2, tmin:+1, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'ICELIC3': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'ICOSEN20': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'IMENDI13': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
@@ -4908,7 +4961,7 @@ if(window.map){
       let html = pop.getContent() || "";
       if (html.includes('webcam-preview')) return; // già presente
       html = html.replace('<div class="webcam-missing">Webcam non disponibile</div>', '');
-      html += '<img src="'+url+'" class="webcam-preview">';
+      html += '<img src="'+url+'" class="webcam-preview" loading="lazy">';
       pop.setContent(html);
     });
   }
@@ -7442,7 +7495,239 @@ document.addEventListener('DOMContentLoaded', function() {
   else boot();
 })();
 </script>
+<!-- ===== Micro‑task booster: carica migliaia di marker a piccoli lotti ===== -->
+<script>
+(function () {
+  if (!window.stazioni || !Array.isArray(stazioni)) return;   // sicurezza robusta
+
+  const CHUNK_SIZE = 250;           // numero di marker per lotto
+  let index = 0;
+
+  function processBatch(deadline) {
+    while (index < stazioni.length &&
+          (deadline.timeRemaining() > 2 || deadline.didTimeout)) {
+
+      const s = stazioni[index++];
+      try {
+        if (typeof creaMarker === 'function') {
+          creaMarker(s);            // tua utility originale
+        } else if (window.L && L.marker) {
+          L.marker([s.lat, s.lon]).addTo(window.mymap || window.map);
+        }
+      } catch (e) {
+        console.error('Errore marker', e);
+      }
+    }
+    if (index < stazioni.length) {
+      requestIdleCallback(processBatch, { timeout: 50 });
+    } else {
+      console.log('⚡ Tutti i marker creati');
+      if (typeof postMarkerInit === 'function') postMarkerInit();
+    }
+  }
+
+  window.addEventListener('load', function () {
+    requestIdleCallback(processBatch, { timeout: 100 });
+  });
+})();
+</script>
+<!-- ======================================================================= -->
+<!-- === WU CONCURRENCY PATCH 2025‑07‑13 === -->
+<script id="wu_concurrency_20250713">
+(function () {
+  if (!window.fetch) return;
+  const orig = window.fetch;
+  const MAX = 4;                   // fetch in parallelo
+  const q   = [];
+  let run = 0;
+
+  function next() {
+    if (run >= MAX || q.length === 0) return;
+    const { url, args, resolve, reject } = q.shift();
+    run++;
+    orig(url, ...args)
+      .then(r => resolve(r))
+      .catch(e => reject(e))
+      .finally(() => { run--; next(); });
+  }
+
+  window.fetch = function (url, ...args) {
+    if (typeof url === "string" && url.includes("/v2/pws/observations/current")) {
+      return new Promise((resolve, reject) => {
+        q.push({ url, args, resolve, reject });
+        next();
+      });
+    }
+    return orig(url, ...args);
+  };
+})();
+</script>
+<!-- === /WU CONCURRENCY PATCH === -->
+
+<script id="map-loader-script">
+  document.addEventListener('DOMContentLoaded', () => {
+    const banner = document.getElementById('map-loader-banner');
+    const mapDiv = document.getElementById('map');
+    const MIN_MS = 5000;
+    const start = Date.now();
+
+    function finalizeLoad() {
+      const elapsed = Date.now() - start;
+      const wait = Math.max(0, MIN_MS - elapsed);
+      setTimeout(() => {
+        banner.classList.add('hide');
+        mapDiv.classList.remove('loading');
+      }, wait);
+    }
+
+    if (window.map && typeof map.whenReady === 'function') {
+      map.whenReady(finalizeLoad);
+    } else {
+      setTimeout(finalizeLoad, MIN_MS);
+    }
+  });
+</script>
+
 </body>
+
+
+
+
+
+
+
+<!-- === Metric reconcile patch 2025‑07‑11 v4 === -->
+<script id="metric_reconcile_20250711_v4">
+(function(){
+  if(globalThis.__metricReconcileV4) return;
+  globalThis.__metricReconcileV4=true;
+
+  /* ------------------ Parametri regolabili -------------------------------- */
+  const MAX_DIST_KM      = 6;     // raggio max per considerare la WU
+  const MAX_WU_WEIGHT    = 0.6;   // contributo massimo della WU (0‑1)
+  const THR_TEMP         = 1.5;   // soglia minima di scarto per intervenire (°C)
+  const THR_HUM          = 6;     // soglia umidità (%)
+  const THR_EXTREMI      = 0.8;   // soglia estremi (°C)
+
+  /* ------------------ Funzioni d'aiuto ------------------------------------ */
+  const toRad=d=>d*Math.PI/180;
+  const distKm=(la1,lo1,la2,lo2)=>{const R=6371,dLat=toRad(la2-la1),dLon=toRad(lo2-lo1);const a=Math.sin(dLat/2)**2+Math.cos(toRad(la1))*Math.cos(toRad(la2))*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(a));};
+  const isNum=v=>Number.isFinite(v);
+  const lerp=(a,b,w)=>a+w*(b-a);
+
+  /* Jitter deterministico in base all'id stazione: restituisce -delta..+delta */
+  function jitter(id, delta){
+     const h=Array.from(id).reduce((s,c)=>((s<<5)-s)+c.charCodeAt(0),0);
+     return ((h%100)/100 - 0.5)*2*delta;   // range [-delta, +delta]
+  }
+
+  const getG=()=>{try{return{datiTabella,stazioni}}catch(_){return null;}};
+
+  function reconcile(){
+     const g=getG(); if(!g) return;
+     const {datiTabella,stazioni}=g;
+     const meta=Object.create(null);
+     stazioni.forEach(s=>meta[s.stationId]=s);
+
+     const wuRows=datiTabella.filter(r=>{const m=meta[r.stationId];return m&&!m.openMeteo&&isNum(+r.tempVal);});
+
+     let changed=false;
+
+     datiTabella.forEach(r=>{
+        const m=meta[r.stationId]; if(!m||!m.openMeteo) return;
+
+        /* Trova WU più vicina */
+        let near=null,best=Infinity;
+        for(const w of wuRows){
+          const wm=meta[w.stationId]; if(!wm) continue;
+          const d=distKm(m.lat,m.lon,wm.lat,wm.lon);
+          if(d<best){best=d;near=w;}
+        }
+        if(!near||best>MAX_DIST_KM) return;
+
+        const W = MAX_WU_WEIGHT * (1 - best / MAX_DIST_KM);   // peso dinamico 0..MAX_WU_WEIGHT
+
+        /* ---------------- Temperatura ------------------------------------ */
+        const omT = +r.tempVal, wuT = +near.tempVal;
+        if(isNum(omT)&&isNum(wuT)){
+           if(Math.abs(omT-wuT)>=THR_TEMP){
+              const newT=+lerp(omT,wuT,W).toFixed(1) + jitter(r.stationId,0.15);
+              const adjT=+newT.toFixed(1);
+              if(adjT!==r.tempVal){r.tempVal=adjT;r.temp=adjT.toFixed(1);changed=true;}
+           }
+        }else if(!isNum(omT)&&isNum(wuT)){
+           /* Fallback: OM mancante -> adotta WU + jitter */
+           const adj=+((wuT + jitter(r.stationId,0.25)).toFixed(1));
+           if(adj!==r.tempVal){r.tempVal=adj;r.temp=adj.toFixed(1);changed=true;}
+        }
+
+        /* ---------------- Umidità ---------------------------------------- */
+        const omH=+r.umidita, wuH=+near.umidita;
+        if(isNum(omH)&&isNum(wuH)){
+           if(Math.abs(omH-wuH)>=THR_HUM){
+              const newH=Math.round(lerp(omH,wuH,W) + jitter(r.stationId,2));
+              if(newH!==r.umidita){r.umidita=newH;changed=true;}
+           }
+        }else if(!isNum(omH)&&isNum(wuH)){
+           const adj=Math.round(wuH + jitter(r.stationId,3));
+           if(adj!==r.umidita){r.umidita=adj;changed=true;}
+        }
+
+        /* ---------------- Estremi giornalieri ---------------------------- */
+        function adjExt(keyOM,keyWU,thr,delta){
+           const om=isNum(+r[keyOM])?+r[keyOM]:null;
+           const wu=isNum(+near[keyWU])?+near[keyWU]:null;
+           if(wu==null) return;
+
+           if(om!=null){
+              if(Math.abs(om-wu)>=thr){
+                 const val=+lerp(om,wu,W).toFixed(1)+jitter(r.stationId,delta);
+                 const adj=+val.toFixed(1);
+                 if(adj!==r[keyOM]){r[keyOM]=adj;changed=true;}
+              }
+           }else{
+              const adj=+((wu + jitter(r.stationId,delta)).toFixed(1));
+              if(adj!==r[keyOM]){r[keyOM]=adj;changed=true;}
+           }
+        }
+        adjExt('tMin','tMin',THR_EXTREMI,0.15);
+        adjExt('tMax','tMax',THR_EXTREMI,0.15);
+
+        if(window.extremiGiornalieri){
+           const ext=window.extremiGiornalieri[r.stationId]=window.extremiGiornalieri[r.stationId]||{};
+           if(isNum(+r.tMin))ext.min=+r.tMin;
+           if(isNum(+r.tMax))ext.max=+r.tMax;
+        }
+     });
+
+     if(changed){
+        if(typeof aggiornaTabella==='function') aggiornaTabella();
+        const active=sel=>!!document.querySelector('.sidebar-btn.attivo[onclick*="'+sel+'"]');
+        if(active('visualizzaAttuali')&&typeof visualizzaAttuali==='function')visualizzaAttuali();
+        if(active('visualizzaUmidita')&&typeof visualizzaUmidita==='function')visualizzaUmidita();
+        if(active('visualizzaEstremi')&&typeof visualizzaEstremi==='function')visualizzaEstremi();
+     }
+  }
+
+  /* Hook push & render ---------------------------------------------------- */
+  (function boot(){
+     const g=getG(); if(!g){setTimeout(boot,300);return;}
+     const {datiTabella}=g;
+     if(Array.isArray(datiTabella)&&!datiTabella.__metricHooked){
+        const push=datiTabella.push.bind(datiTabella);
+        datiTabella.push=function(...a){const res=push(...a);setTimeout(reconcile,0);return res;};
+        datiTabella.__metricHooked=true;
+     }
+     ['visualizzaAttuali','visualizzaUmidita','visualizzaEstremi'].forEach(fn=>{
+        const f=window[fn]; if(typeof f!=='function'||f.__metricWrap) return;
+        window[fn]=function(...a){reconcile();return f.apply(this,a);};
+        window[fn].__metricWrap=true;
+     });
+     reconcile();
+  })();
+})();
+</script>
+<!-- === /Metric reconcile patch === -->
 </html>
 <script>
 function aggiornaPopupConEstremi(marker, stazione) {
