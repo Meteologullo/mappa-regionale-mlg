@@ -40,6 +40,15 @@ async function caricaDatiOpenMeteo() {
   const risultati = await Promise.all(richieste);
   datiTabella.push(...risultati.filter(r => r !== null));
 }
+
+// === PATCH ESTREMI DA FIREBASE ===
+firebase.database().ref('/estremi').once('value').then(snapshot => {
+  window.extremiGiornalieri = snapshot.val() || {};
+  // Puoi scegliere quale mostrare di default:
+  visualizzaEstremi('max');
+  visualizzaEstremi('min');
+});
+
 </script>
 <script>
 window.extremiGiornalieri = {}; // rimosso statico
