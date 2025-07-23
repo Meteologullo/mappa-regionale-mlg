@@ -118,7 +118,7 @@ function visualizzaRaffiche() {
     if (marker) {
       const el = marker.getElement();
       if (el) {
-        el.innerHTML = `<span style='color:white;'>${d.raffica} km/h</span>`;
+        el.innerHTML = `<span style='color:white;'>${d.raffica}</span>`;
         el.style.backgroundColor = '#666';
       }
     }
@@ -2982,11 +2982,11 @@ const stazioni = [
     'IMONTA161': { temp:0, tmax:0, tmin:-3, umidita:0, pioggia:0, percepita:0, raffica:0 },
     
     'BOTTE_DONATO': { temp:0, tmax:-2, tmin:-2, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    'MONTE_CURCIO': { temp:-1, tmax:-4, tmin:-1, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    'CAMIGLIATELLO_SILANO': { temp:+2, tmax:+2, tmin:+1, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    // 'IDOMAN19': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    // 'ICOSEN20': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    // 'IMENDI13': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'MONTE_CURCIO': { temp:-0.3, tmax:-0.3, tmin:-0.1, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'CAMIGLIATELLO_SILANO': { temp:+1, tmax:+1, tmin:+1, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'ISPEZZ1': { temp:-1, tmax:-1, tmin:-1, umidita:0, pioggia:-0.5, percepita:0, raffica:0 },
+    'POTAME': { temp:0, tmax:+0.3, tmin:+0.2, umidita:0, pioggia:0, percepita:0, raffica:20 },
+    'PANETTIERI': { temp:0, tmax:-0.3, tmin:+0.5, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'ICASAL40': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'INUST1': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'CATCENTRO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
@@ -3031,7 +3031,9 @@ const stazioni = [
     // 'CAROLEI': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'DIPIGNANO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'MANGONE': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
-};;
+}
+    window.stationOffsets = stationOffsets;
+;;
     function getOffset(id) {
         return stationOffsets[id] || { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 };
     }
@@ -3248,6 +3250,8 @@ stazioni.forEach((s) => {
 });
 
 function aggiungiMarker(staz, obs) {
+    try{ applyOffsetObs(staz, obs); }catch(e){}
+
   let rawTemp = obs ? (obs.metric.temp + getOffset(staz.stationId).temp) : null;
   let temp = "--";
   let tempVal = null;
@@ -7622,9 +7626,305 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.map && typeof map.whenReady === 'function') {
       map.whenReady(finalizeLoad);
     } else {
-      setTimeout(finalizeLoad, MIN_MS);
+      setTimeo
+<script>
+window.addEventListener('load', function(){
+  try{ applyOffsetsAll(); }catch(e){}
+  setTimeout(applyOffsetsAll, 800);
+});
+</script>
+ut(finalizeLoad, MIN_MS);
     }
   });
+</script>
+
+
+<!-- === OFFSET CORE (CHATGPT) === -->
+<script>
+(function(){
+  if(window.__offsetCore) return; window.__offsetCore=true;
+
+  window.stationOffsets = window.stationOffsets || {};
+
+  const clean = s => (s||'').toString().toLowerCase().replace(/[^a-z0-9]/g,'');
+  const isNum = v => typeof v==='number' && !isNaN(v);
+
+  window.__findOff = function(row){
+    const cand=[row&&row.stationId,row&&row.id,row&&row.nome].map(clean);
+    const OFF = window.stationOffsets;
+    for(const k in OFF){
+      const lk=clean(k);
+      if(cand.some(c=>c===lk || (c&&lk&&(c.includes(lk)||lk.includes(c))))) return OFF[k];
+    }
+    return null;
+  };
+
+  window.applyOffsetRow = function(r){
+    if(!r) return;
+    const of = __findOff(r);
+    if(!of) return;
+    function add(list,key){
+      if(typeof of[key]!=='number') return;
+      list.forEach(f=>{
+        if(r[f]!=null && isNum(+r[f])){
+          const nv = +( (+r[f]) + of[key]).toFixed(1);
+          if(nv !== r[f]){ r[f]=nv; window.__changedFlag = true; }
+        }
+      });
+    }
+    add(['tempVal','temp'],'temp');
+    add(['tMax','tmax'],'tmax');
+    add(['tMin','tmin'],'tmin');
+    add(['umidita'],'umidita');
+    add(['pioggia'],'pioggia');
+    add(['percepitaVal','percepita'],'percepita');
+    add(['raffica'],'raffica');
+
+    if(isNum(+r.tempVal)) r.temp = r.tempVal.toFixed(1);
+    if(isNum(+r.percepitaVal)) r.percepita = r.percepitaVal.toFixed(1);
+
+    if(window.extremiGiornalieri){
+      const ext = window.extremiGiornalieri[r.stationId] = window.extremiGiornalieri[r.stationId] || {};
+      if(isNum(+r.tMin)) ext.min = +r.tMin;
+      if(isNum(+r.tMax)) ext.max = +r.tMax;
+    }
+  };
+
+  window.applyOffsetObs = function(staz,obs){
+    const of = __findOff({stationId:staz?.stationId||staz?.id, nome:staz?.nome});
+    if(!of) return;
+    if(isNum(+obs.temp)     && typeof of.temp ==='number') obs.temp     = +( (+obs.temp)    + of.temp ).toFixed(1);
+    if(isNum(+obs.temp_max) && typeof of.tmax ==='number') obs.temp_max = +( (+obs.temp_max)+ of.tmax ).toFixed(1);
+    if(isNum(+obs.temp_min) && typeof of.tmin ==='number') obs.temp_min = +( (+obs.temp_min)+ of.tmin ).toFixed(1);
+  };
+
+  window.applyOffsetsAll = function(){
+    try{
+      const g = window.getG && getG();
+      const arr = g? g.datiTabella : window.datiTabella;
+      if(Array.isArray(arr)) arr.forEach(applyOffsetRow);
+    }catch(e){console.warn('applyOffsetsAll',e);}
+  };
+
+})();
+</script>
+<!-- === END OFFSET CORE === -->
+
+<script>
+/* force-hide loader if anything hangs */
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    var el=document.getElementById('map-loader-banner');
+    if(el) el.classList.add('hide');
+  }, 2000);
+});
+</script>
+
+<!-- === FIX LOADER/BLUR === -->
+<script>
+(function(){
+  function killLoader(){
+    try{
+      var ids=['map-loader-banner','mapLoader','loader','loading','loadingOverlay'];
+      ids.forEach(function(id){ var el=document.getElementById(id); if(el) el.remove(); });
+      // rimuovi classi che sfocano/disabilitano
+      document.querySelectorAll('.blur,.blurred,.loading,.loading-mask').forEach(function(el){
+        el.classList.remove('blur','blurred','loading','loading-mask');
+        el.style.filter='';
+        el.style.pointerEvents='';
+        el.style.opacity='';
+      });
+    }catch(e){console.warn('killLoader err',e);}
+  }
+  window.addEventListener('load', function(){ setTimeout(killLoader, 6000); setTimeout(killLoader, 6500); });
+})();
+</script>
+<!-- === END FIX LOADER/BLUR === -->
+
+<!-- ===== FINAL PERF PATCH by ChatGPT (override-safe) ===== -->
+<script type="module" id="perf-final">
+/**
+ * Obiettivo: UI fluida senza blocchi.
+ * Metodo: lasciamo il codice originale, ma forniamo versioni ottimizzate delle funzioni pesanti.
+ * Se qualcosa fallisce, facciamo fallback automatico all'originale.
+ */
+
+(function(){
+  if(window.__perfFinalApplied__) return;
+  window.__perfFinalApplied__ = true;
+
+  // ---------- Helpers ----------
+  async function chunkLoop(arr, size, fn){
+    for(let i=0;i<arr.length;i++){
+      fn(arr[i], i);
+      if(i % size === 0){
+        await new Promise(r=>requestAnimationFrame(r));
+      }
+    }
+  }
+  const queue=[]; let sch=false;
+  function batchDOM(cb){
+    queue.push(cb);
+    if(!sch){
+      sch=true;
+      requestAnimationFrame(()=>{
+        sch=false;
+        const list = queue.splice(0);
+        for(const f of list){ try{f();}catch(e){console.error(e);} }
+      });
+    }
+  }
+
+  function safeOverride(name, impl){
+    const orig = window[name];
+    if(typeof orig !== 'function'){ return; }
+    window[name] = async function(...args){
+      try{
+        return await impl.apply(this, args);
+      }catch(err){
+        console.error('[perf-final] errore in', name, err);
+        // fallback
+        try{ return orig.apply(this, args);}catch(e){}
+      }
+    };
+    window[name].__original = orig;
+  }
+
+  // textColor helper if missing
+  if(typeof window.getTextColorForBackground !== 'function'){
+    window.getTextColorForBackground = function(bg){
+      if(!bg) return '#000';
+      const c = bg.replace('#','');
+      const r = parseInt(c.slice(0,2),16),
+            g = parseInt(c.slice(2,4),16),
+            b = parseInt(c.slice(4,6),16);
+      const yiq = ((r*299)+(g*587)+(b*114))/1000;
+      return yiq >= 128 ? '#000' : '#fff';
+    };
+  }
+
+  // ---------- Overrides delle visualizzazioni ----------
+  safeOverride('visualizzaAttuali', async function(){
+    await chunkLoop(datiTabella, 200, (d)=>{
+      const marker = markersById?.[d.stationId];
+      if(!marker || isNaN(d.tempVal)) return;
+      const colore = getColor(d.tempVal);
+      const textColor = getTextColorForBackground(colore);
+      batchDOM(()=>{
+        const el = marker.getElement && marker.getElement();
+        if(!el) return;
+        el.innerHTML = `<span style="color:${textColor};">${d.temp}°</span>`;
+        el.style.backgroundColor = colore;
+      });
+    });
+  });
+
+  safeOverride('visualizzaPercepita', async function(){
+    await chunkLoop(datiTabella, 200, (d)=>{
+      const marker = markersById?.[d.stationId];
+      if(!marker || isNaN(d.percepitaVal)) return;
+      const colore = getColor(d.percepitaVal);
+      const textColor = getTextColorForBackground(colore);
+      batchDOM(()=>{
+        const el = marker.getElement && marker.getElement();
+        if(!el) return;
+        el.innerHTML = `<span style="color:${textColor};">${d.percepita}</span>`;
+        el.style.backgroundColor = colore;
+      });
+    });
+  });
+
+  safeOverride('visualizzaUmidita', async function(){
+    await chunkLoop(datiTabella, 200, (d)=>{
+      const marker = markersById?.[d.stationId];
+      if(!marker || isNaN(d.umidita)) return;
+      const colore = getColorUmidita(d.umidita);
+      const textColor = getTextColorForBackground(colore);
+      batchDOM(()=>{
+        const el = marker.getElement && marker.getElement();
+        if(!el) return;
+        el.innerHTML = `<span style="color:${textColor};">${d.umidita}%</span>`;
+        el.style.backgroundColor = colore;
+      });
+    });
+  });
+
+  safeOverride('visualizzaRaffiche', async function(){
+    await chunkLoop(datiTabella, 200, (d)=>{
+      const marker = markersById?.[d.stationId];
+      if(!marker || isNaN(d.raffica)) return;
+      const colore = getColorVento(d.raffica);
+      const textColor = getTextColorForBackground(colore);
+      batchDOM(()=>{
+        const el = marker.getElement && marker.getElement();
+        if(!el) return;
+        el.innerHTML = `<span style="color:${textColor};">${d.raffica}</span>`;
+        el.style.backgroundColor = colore;
+        el.style.width = '48px';
+        el.style.height = '48px';
+      });
+    });
+  });
+
+  safeOverride('visualizzaEstremi', async function(tipo='max'){
+    await chunkLoop(datiTabella, 200, (d)=>{
+      const marker = markersById?.[d.stationId];
+      if(!marker) return;
+      const val = typeof getEstremoGiornaliero === 'function' ? getEstremoGiornaliero(d.stationId, tipo) : null;
+      if(val==null || isNaN(val)) return;
+      const colore = getColor(val);
+      const textColor = getTextColorForBackground(colore);
+      batchDOM(()=>{
+        const el = marker.getElement && marker.getElement();
+        if(!el) return;
+        el.innerHTML = `<span style="color:${textColor};">${val}°</span>`;
+        el.style.backgroundColor = colore;
+      });
+    });
+  });
+
+  // ---------- caricaDatiOpenMeteo ottimizzata ----------
+  safeOverride('caricaDatiOpenMeteo', async function(){
+    const orig = arguments.callee.__original;
+    try{
+      const src = stazioni.filter(s=>s.openMeteo);
+      const risultati = [];
+      const maxParallel = 8;
+      let idx = 0;
+      async function worker(){
+        while(idx < src.length){
+          const st = src[idx++];
+          try{
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${st.lat}&longitude=${st.lon}&current=temperature_2m,relativehumidity_2m,precipitation,wind_gusts_10m,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+            const data = await fetch(url).then(r=>r.json());
+            const t = data?.current?.temperature_2m;
+            const rh = data?.current?.relativehumidity_2m;
+            const ws = data?.current?.wind_speed_10m;
+            const perc = typeof calcolaPercepita === 'function' ? calcolaPercepita(t,rh,ws) : null;
+            risultati.push({
+              stationId: st.stationId,
+              temp: t,
+              tempVal: t,
+              pioggia: data?.current?.precipitation,
+              umidita: rh,
+              raffica: data?.current?.wind_gusts_10m,
+              percepita: (perc!=null && isFinite(perc)) ? perc.toFixed(1) : '--',
+              percepitaVal: perc
+            });
+          }catch(e){ console.warn('OpenMeteo error', e); }
+          await new Promise(r=>requestAnimationFrame(r));
+        }
+      }
+      await Promise.all(Array.from({length: Math.min(maxParallel, src.length)}, worker));
+      datiTabella.push(...risultati);
+    }catch(e){
+      console.error('Fallback caricaDatiOpenMeteo -> originale', e);
+      return orig && orig.apply(this, arguments);
+    }
+  });
+
+  console.log('[perf-final] patch attivata');
+})();
 </script>
 
 </body>
@@ -7737,7 +8037,55 @@ document.addEventListener('DOMContentLoaded', function() {
            if(isNum(+r.tMin))ext.min=+r.tMin;
            if(isNum(+r.tMax))ext.max=+r.tMax;
         }
-     });
+     
+        /* === APPLY OFFSET AFTER ALIGNMENT === */
+        if(window.stationOffsets){
+          (function(){
+            function norm(s){return (s||'').toString().trim().toLowerCase();}
+            const OFF = window.stationOffsets||{};
+            function isNum(v){return typeof v==='number' && !isNaN(v);}
+            function findOff(r){
+              const keys=[r.stationId,r.nome,(meta[r.stationId] && meta[r.stationId].nome)];
+              for(const k in OFF){
+                const lk=norm(k);
+                for(const ky of keys){
+                  if(!ky) continue;
+                  const nk=norm(ky);
+                  if(nk===lk || nk.includes(lk) || lk.includes(nk)) return OFF[k];
+                }
+              }
+              return null;
+            }
+            const of = findOff(r);
+            if(of && !r.__chatgptOff){
+               function add(field,key,mirror){
+                  if(r[field]!=null && isNum(+r[field]) && typeof of[key]==='number'){
+                    const v = +( (+r[field]) + of[key] ).toFixed(1);
+                    if(v!==r[field]){ r[field]=v; changed=true; }
+                    if(mirror){ r[mirror]=typeof r[mirror]==='number'? v : v.toFixed ? v.toFixed(1):v; }
+                  }
+               }
+               add('tempVal','temp','temp');
+               add('tMax','tmax',null);
+               add('tMin','tmin',null);
+               add('umidita','umidita',null);
+               add('pioggia','pioggia',null);
+               add('percepitaVal','percepita','percepita');
+               add('raffica','raffica',null);
+               r.__chatgptOff=true;
+               if(window.extremiGiornalieri){
+                  const ext=window.extremiGiornalieri[r.stationId]=window.extremiGiornalieri[r.stationId]||{};
+                  if(isNum(+r.tMin))ext.min=+r.tMin;
+                  if(isNum(+r.tMax))ext.max=+r.tMax;
+               }
+            }
+          })();
+        }
+        /* === END OFFSET AFTER ALIGNMENT === */
+
+        // OFFSET finale
+        applyOffsetRow(r);
+});
 
      if(changed){
         if(typeof aggiornaTabella==='function') aggiornaTabella();
