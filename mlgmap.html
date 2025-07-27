@@ -9,7 +9,7 @@
 <style id="hideMarkerOpacity">.leaflet-marker-icon,.leaflet-marker-shadow{opacity:0;transition:opacity 0.15s linear;}</style>
 <meta charset="utf-8"/>
 <title>Mappa Meteo Calabria</title>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
 <link href="https://unpkg.com/leaflet-gesture-handling/dist/leaflet-gesture-handling.min.css" rel="stylesheet"/>
 <script type="module">
@@ -2285,6 +2285,27 @@ window.addEventListener('load', () => {
   }
 </style>
 
+<style id="prevent-zoom">
+  /* Evita lo zoom pinch sulle aree UI (sidebar, pannelli, popup),
+     lasciando libero solo la mappa per il pinch‑zoom di Leaflet */
+  @media (pointer: coarse) {
+    #sidebar,
+    #anteprima-dati-testuali,
+    .leaflet-popup-content-wrapper {
+      touch-action: pan-y;  /* consente lo scroll verticale ma blocca pinch */
+    }
+  }
+
+/* Aggiornamento: estendo la protezione anche ai popup.
+   Blocca il pinch Zoom fuori dalla mappa e fa sì che, con popup aperto,
+   il pinch venga gestito solo dal layer Leaflet */
+@media (pointer: coarse) {
+  .leaflet-popup,
+  .leaflet-popup-content-wrapper,
+  .leaflet-popup-tip-container {
+    touch-action: none;   /* nessun pinch, nessun doppio‑tap zoom di pagina */
+  }
+}</style>
 </head>
 <body>
 
@@ -2802,7 +2823,6 @@ const stazioni = [
   { nome: "Rose", lat: 39.394, lon: 16.232, quota: "ND", provincia: "CS", regione: "Calabria", area: "Collina della media Valle del Crati", openMeteo: true, stationId: "ROSE", webcam: "", linkStazione: "#" },
   { nome: "San Vincenzo la Costa", lat: 39.374, lon: 16.162, quota: "ND", provincia: "CS", regione: "Calabria", area: "Catena Costiera interna", openMeteo: true, stationId: "SAN_VINCENZO_LA_COSTA", webcam: "", linkStazione: "#" },
   { nome: "Lago", lat: 39.16, lon: 16.16, quota: "600", provincia: "CS", regione: "Calabria", area: "Serre Cosentine", openMeteo: true, stationId: "LAGO", webcam: "", linkStazione: "#" },
-  { nome: "Mendicino - Monte Cocuzzo", lat: 39.21, lon: 16.13, quota: "1540", provincia: "CS", regione: "Calabria", area: "Vetta Catena Costiera", openMeteo: true, stationId: "POTAME", webcam: "", linkStazione: "#" },
   { nome: "San Mango d'Aquino", lat: 39.027, lon: 16.217, quota: "ND", provincia: "CZ", regione: "Calabria", area: "Collina della Valle del Savuto", openMeteo: true, stationId: "SAN_MANGO_DAQUINO", webcam: "", linkStazione: "#" },
   { nome: "Panetti", lat: 39.01, lon: 16.30, quota: "ND", provincia: "CS", regione: "Calabria", area: "Collina del Monte Reventino", openMeteo: true, stationId: "PANETTI", webcam: "", linkStazione: "#" },
   { nome: "Cicala", lat: 39.02, lon: 16.416, quota: "ND", provincia: "CZ", regione: "Calabria", area: "Pre-Sila catanzarese", openMeteo: true, stationId: "CICALA", webcam: "", linkStazione: "#" },
@@ -2981,11 +3001,11 @@ const stazioni = [
     const stationOffsets = {
     'IMONTA161': { temp:-2, tmax:-0.7, tmin:-1.6, umidita:0, pioggia:0, percepita:0, raffica:0 },
     
-    'BOTTE_DONATO': { temp:-0.4, tmax:-0.4, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    'MONTE_CURCIO': { temp:-0.3, tmax:-0.3, tmin:-0.1, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'BOTTE_DONATO': { temp:-0.5, tmax:-1.1, tmin:-1.2, umidita:+10, pioggia:0, percepita:0, raffica:0 },
+    'MONTE_CURCIO': { temp:-0.3, tmax:-0.3, tmin:-0.1, umidita:+5, pioggia:0, percepita:0, raffica:0 },
     'CAMIGLIATELLO_SILANO': { temp:+1, tmax:+1, tmin:+1, umidita:0, pioggia:0, percepita:0, raffica:0 },
     'ISPEZZ1': { temp:-1, tmax:-1, tmin:-1, umidita:0, pioggia:-0.5, percepita:0, raffica:0 },
-    'POTAME': { temp:0, tmax:0, tmin:0, umidita:4, pioggia:0, percepita:0, raffica:0 },
+    'POTAME': { temp:+10, tmax:-0.3, tmin:-0.1, umidita:+5, pioggia:0, percepita:0, raffica:0 },
     'PANETTIERI': { temp:0, tmax:-0.6, tmin:+1, umidita:0, pioggia:0, percepita:0, raffica:0 },
     'IFEROL1': { temp:+0, tmax:0, tmin:0, umidita:1, pioggia:-1.1, percepita:0, raffica:0 },
     'ISOVER27': { temp:0, tmax:0, tmin:0, umidita:2, pioggia:-1.2, percepita:0, raffica:0 },
@@ -3002,11 +3022,11 @@ const stazioni = [
     'ISIDERNO2': { temp:0, tmax:0, tmin:0, umidita:2, pioggia:-0.4, percepita:0, raffica:0 },
     'IMOLOC3': { temp:0, tmax:0, tmin:0, umidita:3, pioggia:-0.6, percepita:0, raffica:0 },
     'IRENDE15': { temp:0, tmax:0, tmin:0, umidita:2, pioggia:-0.4, percepita:0, raffica:0 },
-    'IRENDE23': { temp:0, tmax:0, tmin:0, umidita:2, pioggia:-1.1, percepita:0, raffica:0 },
+    'IRENDE23': { temp:0, tmax:0, tmin:+0.4, umidita:2, pioggia:-1.1, percepita:0, raffica:0 },
     'ICORIG10': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:-0.6, percepita:0, raffica:0 },
     'ICALABRI46': { temp:0, tmax:0, tmin:0, umidita:2, pioggia:-8.0, percepita:0, raffica:0 },
     'ICASAL40': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
-    'TAVERNA_DI_MONTALTO_UFFUGO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
+    'TAVERNA_DI_MONTALTO_UFFUGO': { temp:0, tmax:0, tmin:0, umidita:+7, pioggia:0, percepita:0, raffica:0 },
     'MAIERATO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     'VIBO_VALENTIA': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
     // 'SOVERATO': { temp:0, tmax:0, tmin:0, umidita:0, pioggia:0, percepita:0, raffica:0 },
@@ -8101,6 +8121,128 @@ window.addEventListener('load', function(){
   }
 })();
 </script>
+
+<!-- === ClampTemp Patch v6 – 25 Jul 2025 === -->
+<script>
+(function(){
+  if(window.__clampTempPatchV6) return;
+  window.__clampTempPatchV6 = true;
+
+  function num(x){
+    if(x==null) return NaN;
+    if(typeof x==='number') return x;
+    if(typeof x==='string'){
+      return parseFloat(x.replace(',','.'));
+    }
+    return NaN;
+  }
+
+  function clampTemp(val,sid){
+    let v=num(val);
+    let max=num(getEstremoGiornaliero?.(sid,'max'));
+    let min=num(getEstremoGiornaliero?.(sid,'min'));
+    if(Number.isFinite(max) && v>max) v=max;
+    if(Number.isFinite(min) && v<min) v=min;
+    return v;
+  }
+
+  function clampRow(r){
+    if(!r || !r.stationId) return;
+    const cv=clampTemp(r.temp??r.tempVal, r.stationId);
+    r.temp=cv;
+    r.tempVal=cv;
+  }
+
+  function clampData(){
+    if(!window.datiTabella) return;
+    datiTabella.forEach(clampRow);
+  }
+
+  function syncUI(){
+    if(!window.datiTabella||!window.markersById) return;
+    datiTabella.forEach(r=>{
+      const v=num(r.temp);
+      const mk=markersById[r.stationId];
+      if(mk){
+        const el=mk.getElement();
+        if(el){
+          const span=el.querySelector('span');
+          if(span) span.textContent=v.toFixed(1)+'°';
+          if(window.getColor) el.style.backgroundColor=getColor(v);
+        }
+        const popup=mk.getPopup && mk.getPopup();
+        if(popup && popup.isOpen && popup.isOpen()){
+          const n=popup.getElement();
+          if(n){
+            [...n.querySelectorAll('.popup-data')].forEach(node=>{
+              if(/Temp:/i.test(node.textContent)){
+                 node.innerHTML='<span class="bold">Temp:</span> '+v.toFixed(1)+'°C';
+              }else if(/Temp\. percepita:/i.test(node.textContent)){
+                 // leave percepita alone
+              }
+            });
+          }
+        }
+      }
+      // Tabella
+      const cell=document.querySelector(`[data-station-id='${r.stationId}'][data-field='temp']`);
+      if(cell) cell.textContent=v.toFixed(1);
+    });
+  }
+
+  function enforce(){
+    clampData();
+    syncUI();
+  }
+
+  function wrap(name){
+    const orig=window[name];
+    if(typeof orig!=='function' || orig.__clampWrapped) return;
+    window[name]=function(){
+      clampData();
+      const res=orig.apply(this,arguments);
+      syncUI();
+      return res;
+    };
+    window[name].__clampWrapped=true;
+  }
+
+  ['visualizzaAttuali','aggiornaTabella','reconcile','applyOffsetsAll','aggiornaPopupConEstremiFinale','creaTabella'].forEach(wrap);
+
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(enforce,1000));
+  setInterval(enforce,3000);
+})();
+</script>
+
+<script id="block-page-pinch">
+  /* Versione migliorata:
+     - Intercetta qualsiasi gesto pinch (2+ dita) sull'intera pagina e
+       ne blocca lo zoom di default, così la pagina non scala più.
+     - Leaflet continua comunque a ricevere gli eventi touch e gestisce
+       internamente lo zoom mappa, anche quando il pinch parte da un popup.
+     - Copre sia Safari/iOS (gesture*) che Chrome/Android (touchmove).
+  */
+  (function () {
+    // Per Safari / iOS
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach(function(ev) {
+      document.addEventListener(ev, function (e) {
+        e.preventDefault();
+      }, { passive: false });
+    });
+
+    // Per Chrome / Android & altri: blocca default del pinch
+    var cancelPinch = function (e) {
+      if (e.touches && e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('touchmove', cancelPinch, { passive: false });
+
+    /* Nota: Leaflet, che utilizza internamente touchstart/touchmove
+       sul contenitore mappa, continua a funzionare perché riceve gli
+       stessi eventi (la propagazione non viene bloccata). */
+  })();
+</script>
 </body>
 
 
@@ -8289,6 +8431,56 @@ window.addEventListener('load', function(){
 })();
 </script>
 <!-- === /Metric reconcile patch === -->
+
+<!-- === Auto‑Repeat Display Patch – 26 Jul 2025 (incl. MM) === -->
+<script id="auto-repeat-display">
+(function(){
+  let activeFn=null, activeArgs=[], rafId=null;
+
+  function loop(){
+    if(typeof activeFn==='function'){
+      try{ activeFn.apply(window, activeArgs); }catch(e){}
+      rafId = requestAnimationFrame(loop);
+    }
+  }
+
+  function start(fn, args){
+    activeFn = fn;
+    activeArgs = args;
+    if(rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function wrap(name){
+    const orig = window[name];
+    if(typeof orig!=='function' || orig.__autoRepeatWrapped) return;
+    window[name] = function(...args){
+      const res = orig.apply(this, args);
+      if(name !== 'visualizzaAttuali'){
+        start(orig, args);
+      } else {
+        activeFn = null;
+        if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+      }
+      return res;
+    };
+    window[name].__autoRepeatWrapped = true;
+  }
+
+  function boot(){
+    ['visualizzaAttuali',
+     'visualizzaUmidita',
+     'visualizzaPercepita',
+     'visualizzaRaffiche',
+     'visualizzaEstremi',
+     'visualizzaPioggia'].forEach(wrap);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
 </html>
 <script>
 function aggiornaPopupConEstremi(marker, stazione) {
