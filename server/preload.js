@@ -1,21 +1,26 @@
 import puppeteer from "puppeteer";
 import { resolve } from "path";
 
-/* Puntiamo al tuo file esistente mlgmap.html */
-const fileURL = resolve("mlgmap.html");
+const fileURL = resolve("mlgmap.html");   // il tuo file esistente
 
 export async function buildHTML() {
-  const browser = await puppeteer.launch({ args: ["--no-sandbox"] });
-  const page    = await browser.newPage();
+  // usa il nuovo headless e aumenta i permessi
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox"],
+  });
+  const page = await browser.newPage();
 
-  /* Carica la pagina locale e aspetta che abbia finito le fetch */
-  await page.goto(`file://${fileURL}`, { waitUntil: "networkidle0" });
+  // 1) carica l'HTML (domcontentloaded) con timeout 60s
+  await page.goto(`file://${fileURL}`, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+  });
 
-  /* Se un giorno aggiungi:  window.mappaPronta = true  nel tuo JS,
-     questa riga aspetterà quel segnale; per ora non succede nulla */
-  await page.waitForFunction("window.mappaPronta===true").catch(()=>{});
+  // 2) aspetta 5 secondi per le fetch della mappa
+  await page.waitForTimeout(5000);
 
-  /* Serializza l'HTML finale con i marker già dentro */
+  // 3) cattura il DOM finale
   const html = await page.content();
   await browser.close();
   return html;
