@@ -1,0 +1,13 @@
+{
+  "name": "mappa-regionale-mlg",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.19.2",
+    "puppeteer": "^22.2.0",
+    "node-cron": "^3.0.2"
+  },
+  "scripts": {
+    "start": "node server/index.js"
+  }
+}
