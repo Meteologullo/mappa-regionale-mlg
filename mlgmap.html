@@ -8243,6 +8243,127 @@ window.addEventListener('load', function(){
        stessi eventi (la propagazione non viene bloccata). */
   })();
 </script>
+
+<!-- === ChatGPT precipitation & humidity offset patch 2025‑08‑05 === -->
+<script id="precip_humidity_offset_patch">
+(function(){
+  if(window.__precipHumPatch) return;
+  window.__precipHumPatch = true;
+
+  function isNum(v){ return typeof v==='number' && !isNaN(v); }
+
+  const origApply = window.applyOffsetRow;
+  if(typeof origApply!=='function') return;
+
+  window.applyOffsetRow = function patchedApply(r){
+      if(!r) return origApply && origApply.call(this, r);
+
+      const beforeRain = isNum(r.pioggia) ? +r.pioggia : null;
+      const beforeHum  = isNum(r.umidita) ? +r.umidita : null;
+
+      /* run original logic */
+      origApply && origApply.call(this, r);
+
+      /* --- Rain rules -------------------------------------------------- */
+      if(beforeRain!=null){
+         if(beforeRain <= 0.1){
+            /* do NOT apply any offset if raw rain ≤0.1 mm */
+            r.pioggia = parseFloat(beforeRain.toFixed(1));
+         }else if(isNum(r.pioggia)){
+            /* never show negative after offsets */
+            if(r.pioggia < 0) r.pioggia = 0;
+         }
+      }
+
+      /* --- Humidity rules --------------------------------------------- */
+      if(isNum(r.umidita)){
+         if(r.umidita > 100) r.umidita = 100;
+         if(r.umidita < 4)   r.umidita = 4;     /* clamp lower bound */
+      }
+  };
+})();
+</script>
+<!-- === /patch === -->
+
+
+<!-- === ChatGPT precipitation & humidity offset patch v2 2025‑08‑05 === -->
+<script id="precip_humidity_offset_patch_v2">
+(function(){
+  if(window.__precipHumPatchV2) return;
+  window.__precipHumPatchV2 = true;
+
+  function isNum(v){ return typeof v==='number' && !isNaN(v); }
+
+  /* ---------- patch applyOffsetRow (if present) ------------ */
+  const origApply = window.applyOffsetRow;
+  if(typeof origApply==='function'){
+    window.applyOffsetRow = function patchedApply(r){
+        if(!r) return origApply.call(this, r);
+
+        const rawRain = isNum(r.pioggia) ? +r.pioggia : null;
+        const rawHum  = isNum(r.umidita) ? +r.umidita : null;
+
+        /* let original code run first (offsets applied) */
+        origApply.call(this, r);
+
+        /* ------- Rain rules -------- */
+        if(rawRain!=null){
+           if(rawRain <= 0.1){
+              r.pioggia = parseFloat(rawRain.toFixed(1));
+           }else if(isNum(r.pioggia) && r.pioggia < 0){
+              r.pioggia = 0;
+           }
+        }
+
+        /* ------- Humidity rules ---- */
+        if(isNum(r.umidita)){
+           if(r.umidita > 100) r.umidita = 100;
+           if(r.umidita < 4)   r.umidita = 4;
+        }
+    };
+  }
+
+  /* ------ Clamp existing data (already offset) ------------- */
+  function clampExisting(){
+     const visited = new WeakSet();
+     function traverse(obj){
+        if(obj===null || typeof obj!=='object' || visited.has(obj)) return;
+        visited.add(obj);
+
+        if('pioggia' in obj){
+           const v = parseFloat(obj.pioggia);
+           if(!isNaN(v) && v < 0) obj.pioggia = 0;
+        }
+        if('umidita' in obj){
+           let h = parseFloat(obj.umidita);
+           if(!isNaN(h)){
+              if(h > 100) h = 100;
+              if(h < 4)   h = 4;
+              obj.umidita = h;
+           }
+        }
+
+        for(const key in obj){
+          traverse(obj[key]);
+        }
+     }
+
+     for(const key in window){
+        try{
+           traverse(window[key]);
+        }catch(e){}
+     }
+  }
+
+  if(document.readyState === 'complete'){
+     clampExisting();
+  }else{
+     window.addEventListener('load', clampExisting);
+  }
+})();
+</script>
+<!-- === /patch v2 === -->
+
 </body>
 
 
