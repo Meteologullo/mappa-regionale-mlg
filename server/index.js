@@ -4,24 +4,30 @@ import { buildHTML } from "./preload.js";
 
 const app = express();
 
-/* Contiene l'ultima versione "calda" della pagina */
+// conterrà sempre l’ultima versione “calda” della pagina
 let cache = { html: "<h2>Sto preparando la mappa…</h2>" };
 
-/* Funzione che rigenera la cache */
+// Rigenera la mappa; se va in errore non fa crollare il server
 async function refresh() {
-  cache.html = await buildHTML();
-  console.log("✅ Mappa rigenerata", new Date().toLocaleTimeString());
+  try {
+    cache.html = await buildHTML();
+    console.log("✅ Mappa rigenerata", new Date().toLocaleTimeString());
+  } catch (err) {
+    console.error("❌ Errore nel prerender:", err.message);
+  }
 }
 
-/* 1) subito all'avvio  2) poi ogni 10 minuti (*/10 *) */
+// 1) prima rigenerazione subito               //
+// 2) poi ogni 10 minuti (cron: "*/10 * * * *")//
 refresh();
 cron.schedule("*/10 * * * *", refresh);
 
-/* Endpoint principale */
+// endpoint principale
 app.get("/", (_, res) => res.type("html").send(cache.html));
 
-/* Espone eventuali immagini / css che la tua pagina usa relativi al repo */
+// espone eventuali risorse locali (icone, css…)
 app.use("/static", express.static("."));
 
-/* Railway fornisce PORT, in locale default 8080 */
-app.listen(process.env.PORT || 8080);
+// Railway inserisce PORT; in locale userà 8080
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log("🚀 Server avviato sulla porta", PORT));
