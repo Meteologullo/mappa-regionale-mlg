@@ -1,27 +1,63 @@
+// server/preload.js
 import puppeteer from "puppeteer";
 import { resolve } from "path";
 
-const fileURL = resolve("mlgmap.html");   // il tuo file esistente
+const fileURL = resolve("mlgmap.html");
 
 export async function buildHTML() {
-  // usa il nuovo headless e aumenta i permessi
+  // 1) Lancio Puppeteer headless
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox"],
   });
   const page = await browser.newPage();
 
-  // 1) carica l'HTML (domcontentloaded) con timeout 60s
+  // 2) Lista di URL da “catturare”
+  let apiResponse = null;
+  page.on("response", async resp => {
+    const url = resp.url();
+    if (url.includes("api.open-meteo.com")) {
+      try {
+        apiResponse = await resp.json();
+      } catch {}
+    }
+  });
+
+  // 3) Carica la pagina, aspetta il DOM
   await page.goto(`file://${fileURL}`, {
     waitUntil: "domcontentloaded",
     timeout: 60000,
   });
-
-  // 2) aspetta 5 secondi per le fetch della mappa
+  // dammi 5s per le operazioni JS/fetch
   await page.waitForTimeout(5000);
 
-  // 3) cattura il DOM finale
-  const html = await page.content();
+  // 4) Prendi l'HTML risultante
+  let html = await page.content();
   await browser.close();
+
+  // 5) Se ho intercettato i dati, inietto il JSON + override di fetch
+  if (apiResponse) {
+    const jsonTxt = JSON.stringify(apiResponse)
+      .replace(/</g, "\\u003c"); // evita collisioni con HTML
+    const injection = `
+      <script id="preloaded-data" type="application/json">
+        ${jsonTxt}
+      </script>
+      <script>
+        // Sovrascrivo fetch per restituire subito i dati prerenderizzati
+        const PRELOADED = JSON.parse(
+          document.getElementById("preloaded-data").textContent
+        );
+        window.fetch = (url, opts) =>
+          Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve(PRELOADED)
+          });
+      </script>
+    `;
+    // inietto subito prima di </head>
+    html = html.replace("</head>", injection + "</head>");
+  }
+
   return html;
 }
