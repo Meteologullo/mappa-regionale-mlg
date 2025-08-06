@@ -1,25 +1,27 @@
-# 1. Usa un'immagine Node ufficiale (buster-slim include librerie grafiche base)
+# Usa un'immagine Node ufficiale basata su Debian slim
 FROM node:20-buster-slim
 
-# 2. Crea la cartella di lavoro
+# Crea e imposta la cartella di lavoro
 WORKDIR /app
 
-# 3. Copia solo le dipendenze e installa
+# Copia solo i file di lock e package per installare le dipendenze
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
 
-# 4. Installa solo le librerie di sistema necessarie a far girare Chromium
+# Installa le dipendenze di produzione
+RUN npm install --omit=dev
+
+# Installa le librerie di sistema per far girare Chromium (Puppeteer)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 \
     libasound2 libpangocairo-1.0-0 libxss1 libgtk-3-0 libxshmfence1 \
  && rm -rf /var/lib/apt/lists/*
 
-# 5. Copia il resto dell’app
+# Copia tutto il resto dell’applicazione
 COPY . .
 
-# 6. Espone la porta (Railway lo mappa automaticamente)
+# Espone la porta su cui gira Express
 EXPOSE 8080
 
-# 7. Avvia il server
-CMD ["npm","start"]
+# Avvia il server
+CMD ["npm", "start"]
