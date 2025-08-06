@@ -6,27 +6,22 @@ const puppeteer = require('puppeteer');
 
 (async () => {
   const browser = await puppeteer.launch({
+    headless: "new",
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
+
   const page = await browser.newPage();
-  const url = 'https://meteologullo.github.io/mappa-regionale-mlg/mlgmap.html';
+  const url = 'http://localhost:8080/mlgmap.html';
 
-  // Wait up to 60s for the map to load fully
-  await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 });
+  await page.goto(url, { waitUntil: 'networkidle0', timeout: 120000 });
 
-  // Take a full-page screenshot
   const contentHandler = await page.content();
 
-  // Ensure output dir
   const outDir = path.join(__dirname, 'gh-pages');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
-  // Save prerendered HTML
   fs.writeFileSync(path.join(outDir, 'mlgmap.html'), contentHandler);
 
-  // Also copy any static assets if needed (e.g. CSS/JS)
-  // (Assumes your map is self-contained)
-
   await browser.close();
-  console.log('✅ prerender complete');
+  console.log("✅ prerender complete");
 })();
