@@ -1,21 +1,25 @@
 const puppeteer = require("puppeteer");
+const fs = require("fs");
 
 (async () => {
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
   const page = await browser.newPage();
 
   console.log("⏳ Caricamento mappa...");
   await page.goto("http://localhost:8080/mlgmap.html", {
     waitUntil: "networkidle0",
-    timeout: 0, // Nessun timeout: la mappa può metterci molto
+    timeout: 0
   });
 
   console.log("✅ Mappa caricata");
 
-  // Attendi che la mappa sia disponibile
+  // Aspetta che la mappa sia disponibile
   await page.waitForFunction(() => window.map !== undefined);
 
-  // Zoom simulato per forzare i marker a comparire
+  // Zoom simulato per far apparire tutti i marker
   console.log("🔍 Zoom simulato...");
   await page.evaluate(async () => {
     for (let i = 0; i < 3; i++) {
@@ -24,12 +28,14 @@ const puppeteer = require("puppeteer");
     }
   });
 
-  // Attendi un po' per assicurarsi che tutto sia visibile
-  await page.waitForTimeout(1000);
+  // Attendi che i marker vengano ridisegnati
+  await page.waitForTimeout(5000);
 
-  // Screenshot
-  await page.screenshot({ path: "screenshot.png" });
-  console.log("📸 Screenshot salvato");
+  // Salva l'HTML completo della mappa nello stato finale
+  const content = await page.content();
+  fs.writeFileSync("dist/mlgmap.html", content);
+
+  console.log("📄 HTML salvato con successo");
 
   await browser.close();
 })();
