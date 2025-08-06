@@ -1,42 +1,37 @@
 const puppeteer = require("puppeteer");
-const fs = require("fs");
 
 (async () => {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
 
-  // Naviga alla mappa e aspetta che la rete sia inattiva (nessuna richiesta per 500 ms)
+  console.log("⏳ Caricamento mappa...");
   await page.goto("http://localhost:8080/mlgmap.html", {
-    waitUntil: "networkidle2",
-    timeout: 0, // Disattiva timeout per evitare errori
+    waitUntil: "networkidle0",
+    timeout: 0, // Nessun timeout: la mappa può metterci molto
   });
 
-  // Aspetta fino a 90 secondi che la mappa venga caricata e assegnata a window.map
-  await page.waitForFunction(
-    () => typeof window.map !== "undefined",
-    { timeout: 90000 } // 90 secondi
-  );
+  console.log("✅ Mappa caricata");
 
-  // Zoom out gradualmente per far caricare tutti i marker
-  for (let i = 0; i < 4; i++) {
-    await page.evaluate(() => window.map.zoomOut());
-    await page.waitForTimeout(3000); // Attendi 3 secondi dopo ogni zoom
-  }
+  // Attendi che la mappa sia disponibile
+  await page.waitForFunction(() => window.map !== undefined);
 
-  // Attendi 10 secondi extra per garantire il rendering completo dei marker
-  await page.waitForTimeout(10000);
+  // Zoom simulato per forzare i marker a comparire
+  console.log("🔍 Zoom simulato...");
+  await page.evaluate(async () => {
+    for (let i = 0; i < 3; i++) {
+      window.map.zoomOut();
+      await new Promise(r => setTimeout(r, 500));
+    }
+  });
 
-  // Salva l'HTML risultante
-  const content = await page.content();
-  fs.writeFileSync("dist/mlgmap.html", content);
+  // Attendi un po' per assicurarsi che tutto sia visibile
+  await page.waitForTimeout(1000);
+
+  // Screenshot
+  await page.screenshot({ path: "screenshot.png" });
+  console.log("📸 Screenshot salvato");
 
   await browser.close();
 })();
 
-
-  return html;
-};
 
