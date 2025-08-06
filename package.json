@@ -1,11 +1,15 @@
 {
   "name": "mappa-regionale-mlg",
   "version": "1.0.0",
-  "description": "Prerender di mlgmap.html ogni 10 minuti",
+  "private": true,
+  "type": "module",
   "scripts": {
+    "start": "node server/index.js",
     "prerender": "node prerender.js"
   },
   "dependencies": {
+    "express": "^4.18.2",
+    "node-cron": "^3.0.2",
     "puppeteer": "^20.9.0"
   }
 }
