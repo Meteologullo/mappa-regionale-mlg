@@ -1,33 +1,39 @@
-name: Prerender Mappa ogni 10'
+name: Build and Deploy MLG Map
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'  # Ogni 10 minuti
-  workflow_dispatch:         # Esecuzione manuale
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v4
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: 🟨 Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Installa dipendenze
-        run: npm install
+      - name: 📦 Install dependencies
+        run: npm install puppeteer express
 
-      - name: Avvia server Express
+      - name: 🏗️ Build prerendered HTML
         run: |
-          npm start &
-          npx wait-on http://localhost:8080/mlgmap.html
+          mkdir -p dist
+          node server/index.js
 
-      - name: Prerender pagina
-        run: npm run prerender
+      - name: ⏱️ Wait for prerender to complete
+        run: sleep 30
 
-      - name: Deploy su gh-pages
+      - name: 🚀 Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./gh-pages
+          publish_dir: ./dist
+
 
