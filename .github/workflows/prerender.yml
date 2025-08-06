@@ -7,6 +7,8 @@ on:
 
 jobs:
   build-and-deploy:
+    # Skip se non siamo su main
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
