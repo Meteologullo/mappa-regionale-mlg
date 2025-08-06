@@ -2,37 +2,58 @@
 import puppeteer from "puppeteer";
 import { resolve } from "path";
 
+/**
+ * Escapa una stringa per usarla in new RegExp(...)
+ */
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const fileURL = resolve("mlgmap.html");
 
 export async function buildHTML() {
   const browser = await puppeteer.launch({
     headless: "new",
-    args: ["--no-sandbox"],
+    args: ["--no-sandbox"]
   });
   const page = await browser.newPage();
 
-  // 1) intercettiamo la risposta dei dati (API Open-Meteo)
+  // 1) Intercettiamo i JSON di dati e le risposte delle tile
   let apiData = null;
+  const tileBuffers = {};  // url -> base64
+
   page.on("response", async resp => {
     const url = resp.url();
+
+    // 1a) dati Open–Meteo
     if (url.includes("api.open-meteo.com")) {
-      try { apiData = await resp.json(); } catch {}
+      try {
+        apiData = await resp.json();
+      } catch {}
+    }
+
+    // 1b) immagini tile di Leaflet (OpenStreetMap)
+    if (/tile\.openstreetmap\.org/.test(url)) {
+      try {
+        const buf = await resp.buffer();
+        tileBuffers[url] = buf.toString("base64");
+      } catch {}
     }
   });
 
-  // 2) carichiamo la pagina e aspettiamo tutti i marker
+  // 2) Carichiamo la pagina e aspettiamo il rendering completo
   await page.goto(`file://${fileURL}`, {
     waitUntil: "networkidle0",
-    timeout: 60000,
+    timeout: 60000
   });
-  // attendiamo che i marker Leaflet siano tutti montati nel DOM
-  await page.waitForSelector(".leaflet-marker-icon", { timeout: 10000 });
+  // attendiamo qualche secondo in più per sicurezza
+  await page.waitForTimeout(5000);
 
-  // 3) prendiamo l'HTML generato
+  // 3) Prendiamo l'HTML finale
   let html = await page.content();
   await browser.close();
 
-  // 4) iniettiamo il JSON e override **solo** fetch API
+  // 4) Iniettiamo il JSON pre-caricato e l'override di fetch SOLO per Open-Meteo
   if (apiData) {
     const jsonTxt = JSON.stringify(apiData).replace(/</g, "\\u003c");
     const injection = `
@@ -40,7 +61,7 @@ export async function buildHTML() {
         ${jsonTxt}
       </script>
       <script>
-        // override fetch SOLO per l'endpoint Open-Meteo
+        // override fetch solo per i dati meteo
         const realFetch = window.fetch;
         window.fetch = (url, opts) => {
           if (url.includes("api.open-meteo.com")) {
@@ -54,6 +75,16 @@ export async function buildHTML() {
       </script>
     `;
     html = html.replace("</head>", injection + "</head>");
+  }
+
+  // 5) Sostituiamo tutte le URL delle tile con Data-URI
+  for (const [url, b64] of Object.entries(tileBuffers)) {
+    const dataUri = `data:image/png;base64,${b64}`;
+    // replaciamo tutte le occorrenze della URL originale
+    html = html.replace(
+      new RegExp(escapeRegExp(url), "g"),
+      dataUri
+    );
   }
 
   return html;
