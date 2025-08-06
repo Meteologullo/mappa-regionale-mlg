@@ -1,45 +1,30 @@
-// prerender.js
-const fs = require('fs');
-const path = require('path');
-const puppeteer = require('puppeteer');
+name: Prerender e Deploy ogni 10'
 
-(async () => {
-  const url = 'https://meteologullo.github.io/mappa-regionale-mlg/mlgmap.html';
-  let browser;
-  try {
-    browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
+on:
+  schedule:
+    - cron:  '*/10 * * * *'    # ogni 10 minuti
+  workflow_dispatch:          # eseguibile anche manualmente
 
-    // imposta viewport
-    await page.setViewport({ width: 1280, height: 800 });
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
-    // blocca immagini, font e css per velocizzare
-    await page.setRequestInterception(true);
-    page.on('request', req => {
-      const t = req.resourceType();
-      if (['image','stylesheet','font'].includes(t)) req.abort();
-      else req.continue();
-    });
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    // naviga e aspetta che il network sia idle
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-    // prendi l'HTML renderizzato
-    const html = await page.content();
+      - name: Install dependencies
+        run: npm install --omit=dev
 
-    // scrivi in gh-pages/index.html
-    const outDir = path.join(__dirname, 'gh-pages');
-    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
-    fs.writeFileSync(path.join(outDir, 'index.html'), html);
+      - name: Prerender pagina
+        run: npm run prerender
 
-    console.log('✅ prerender completato');
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
-  } finally {
-    if (browser) await browser.close();
-  }
-})();
-
+      - name: Deploy su gh-pages
+        run: npm run deploy:gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
