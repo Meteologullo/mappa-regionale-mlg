@@ -1,30 +1,32 @@
-name: Prerender e Deploy ogni 10'
+#!/usr/bin/env node
 
-on:
-  schedule:
-    - cron:  '*/10 * * * *'    # ogni 10 minuti
-  workflow_dispatch:          # eseguibile anche manualmente
+const fs = require('fs');
+const path = require('path');
+const puppeteer = require('puppeteer');
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+(async () => {
+  const browser = await puppeteer.launch({
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  const page = await browser.newPage();
+  const url = 'https://meteologullo.github.io/mappa-regionale-mlg/mlgmap.html';
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+  // Wait up to 60s for the map to load fully
+  await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 });
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
+  // Take a full-page screenshot
+  const contentHandler = await page.content();
 
-      - name: Install dependencies
-        run: npm install --omit=dev
+  // Ensure output dir
+  const outDir = path.join(__dirname, 'gh-pages');
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
 
-      - name: Prerender pagina
-        run: npm run prerender
+  // Save prerendered HTML
+  fs.writeFileSync(path.join(outDir, 'mlgmap.html'), contentHandler);
 
-      - name: Deploy su gh-pages
-        run: npm run deploy:gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  // Also copy any static assets if needed (e.g. CSS/JS)
+  // (Assumes your map is self-contained)
+
+  await browser.close();
+  console.log('✅ prerender complete');
+})();
