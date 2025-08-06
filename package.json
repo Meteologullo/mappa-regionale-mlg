@@ -1,14 +1,17 @@
 {
   "name": "mappa-regionale-mlg",
   "version": "1.0.0",
-  "description": "Prerender statico della mappa regionale MLG",
+  "type": "module",
   "scripts": {
     "start": "node server/index.js",
-    "prerender": "node prerender.js",
-    "deploy:gh-pages": "gh-pages -d gh-pages"
+    "prerender": "node prerenderer.js",
+    "deploy:gh-pages": "gh-pages -d gh-pages -r https://x-access-token:${GITHUB_TOKEN}@github.com/Meteologullo/mappa-regionale-mlg.git"
   },
   "dependencies": {
-    "puppeteer": "^20.9.0",
+    "express": "^4.18.2",
+    "puppeteer": "^20.9.0"
+  },
+  "devDependencies": {
     "gh-pages": "^5.0.0"
   }
 }
