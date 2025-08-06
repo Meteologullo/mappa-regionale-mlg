@@ -1,6 +1,6 @@
-import express from "express";
-import cron    from "node-cron";
-import { buildHTML } from "./preload.js";
+const express = require("express");
+const cron = require("node-cron");
+const { buildHTML } = require("./preload.js");
 
 const app = express();
 let cache = { html: "<h2>Sto preparando la mappa…</h2>" };
@@ -22,3 +22,4 @@ app.use("/static", express.static("."));
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("🚀 Server in ascolto sulla porta", PORT));
+
