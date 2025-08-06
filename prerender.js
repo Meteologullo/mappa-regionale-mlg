@@ -13,15 +13,19 @@ const puppeteer = require('puppeteer');
   const page = await browser.newPage();
   const url = 'http://localhost:8080/mlgmap.html';
 
+  // Carica la mappa
   await page.goto(url, { waitUntil: 'networkidle0', timeout: 120000 });
 
-  const contentHandler = await page.content();
+  // ✅ Esegui uno zoom per forzare il caricamento di marker "nascosti"
+  await page.evaluate(() => {
+    // ⚠️ Assumiamo che la mappa sia accessibile come `window.map`
+    const map = window.map;
+    if (map && typeof map.setZoom === "function") {
+      map.setZoom(10); // Cambia il livello se necessario
+    }
+  });
 
-  const outDir = path.join(__dirname, 'gh-pages');
-  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
+  // Aspetta che i nuovi marker vengano renderizzati
+  await page.waitForTimeout(3000);
 
-  fs.writeFileSync(path.join(outDir, 'mlgmap.html'), contentHandler);
-
-  await browser.close();
-  console.log("✅ prerender complete");
-})();
+  // Prendi il contenuto HTML completo
