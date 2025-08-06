@@ -1,20 +1,13 @@
 {
-  "name": "mappa-regionale-mlg",
+  "name": "mlgmap-prerender",
   "version": "1.0.0",
-  "private": true,
+  "description": "Prerender automatico di mlgmap.html con Puppeteer",
+  "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "prerender": "node prerender.js",
-    "deploy:gh-pages": "gh-pages -d gh-pages"
+    "start": "node server/index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "leaflet": "^1.9.3",
-    "node-cron": "^3.0.3"
-  },
-  "devDependencies": {
-    "puppeteer": "^20.9.0",
-    "gh-pages": "^5.0.0",
-    "wait-on": "^7.0.1"
+    "puppeteer": "^21.3.8"
   }
 }
