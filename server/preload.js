@@ -1,38 +1,35 @@
-// server/preload.js
-import puppeteer from "puppeteer";
-import { resolve } from "path";
+const puppeteer = require("puppeteer");
+const { resolve } = require("path");
 
-/**
- * Escapa una stringa per usarla in new RegExp(...)
- */
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 const fileURL = resolve("mlgmap.html");
 
-export async function buildHTML() {
+exports.buildHTML = async function () {
   const browser = await puppeteer.launch({
     headless: "new",
     args: ["--no-sandbox"]
   });
+
   const page = await browser.newPage();
 
-  // 1) Intercettiamo i JSON di dati e le risposte delle tile
+  // Intercetta tile e dati
   let apiData = null;
-  const tileBuffers = {};  // url -> base64
+  const tileBuffers = {};
 
-  page.on("response", async resp => {
+  page.on("response", async (resp) => {
     const url = resp.url();
 
-    // 1a) dati Open–Meteo
+    // Dati Open-Meteo
     if (url.includes("api.open-meteo.com")) {
       try {
         apiData = await resp.json();
       } catch {}
     }
 
-    // 1b) immagini tile di Leaflet (OpenStreetMap)
+    // Tile immagine (OpenStreetMap)
     if (/tile\.openstreetmap\.org/.test(url)) {
       try {
         const buf = await resp.buffer();
@@ -41,19 +38,19 @@ export async function buildHTML() {
     }
   });
 
-  // 2) Carichiamo la pagina e aspettiamo il rendering completo
+  // Carica pagina
   await page.goto(`file://${fileURL}`, {
     waitUntil: "networkidle0",
     timeout: 60000
   });
-  // attendiamo qualche secondo in più per sicurezza
+
   await page.waitForTimeout(5000);
 
-  // 3) Prendiamo l'HTML finale
+  // Prendi HTML
   let html = await page.content();
   await browser.close();
 
-  // 4) Iniettiamo il JSON pre-caricato e l'override di fetch SOLO per Open-Meteo
+  // Inietta i dati
   if (apiData) {
     const jsonTxt = JSON.stringify(apiData).replace(/</g, "\\u003c");
     const injection = `
@@ -61,7 +58,6 @@ export async function buildHTML() {
         ${jsonTxt}
       </script>
       <script>
-        // override fetch solo per i dati meteo
         const realFetch = window.fetch;
         window.fetch = (url, opts) => {
           if (url.includes("api.open-meteo.com")) {
@@ -74,13 +70,13 @@ export async function buildHTML() {
         };
       </script>
     `;
+
     html = html.replace("</head>", injection + "</head>");
   }
 
-  // 5) Sostituiamo tutte le URL delle tile con Data-URI
+  // Sostituisci tile con data URI
   for (const [url, b64] of Object.entries(tileBuffers)) {
     const dataUri = `data:image/png;base64,${b64}`;
-    // replaciamo tutte le occorrenze della URL originale
     html = html.replace(
       new RegExp(escapeRegExp(url), "g"),
       dataUri
@@ -88,6 +84,5 @@ export async function buildHTML() {
   }
 
   return html;
-}
-
+};
 
