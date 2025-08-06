@@ -1,26 +1,31 @@
-name: Prerender Mappa ogni 10'
-on:
-  schedule:
-    - cron: '*/10 * * * *'
-  workflow_dispatch:
+#!/usr/bin/env node
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      - run: npm install
-      - name: Avvia server
-        run: |
-          npm start &
-          sleep 5
-      - name: Prerender pagina
-        run: npm run prerender
-      - name: Deploy su gh-pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./gh-pages
+const fs = require('fs');
+const path = require('path');
+const puppeteer = require('puppeteer');
+
+(async () => {
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+
+  const page = await browser.newPage();
+  const url = 'http://localhost:8080/mlgmap.html';
+
+  // Aspetta il rendering completo della mappa
+  await page.goto(url, { waitUntil: 'networkidle0', timeout: 120000 });
+
+  // Prende il contenuto HTML della pagina
+  const contentHandler = await page.content();
+
+  // Directory di output
+  const outDir = path.join(__dirname, 'gh-pages');
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
+
+  // Scrive l'HTML prerenderizzato
+  fs.writeFileSync(path.join(outDir, 'mlgmap.html'), contentHandler);
+
+  await browser.close();
+  console.log("✅ prerender complete");
+})();
