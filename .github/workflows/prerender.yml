@@ -2,8 +2,8 @@ name: Prerender Mappa ogni 10'
 
 on:
   schedule:
-    - cron: '*/10 * * * *'    # ogni 10 minuti
-  workflow_dispatch:         # permette esecuzione manuale
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -18,10 +18,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --omit=dev
 
       - name: Prerender pagina
         run: npm run prerender
