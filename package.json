@@ -1,6 +1,7 @@
 {
   "name": "mappa-regionale-mlg",
   "version": "1.0.0",
+  "description": "Prerender statico della mappa regionale MLG",
   "scripts": {
     "start": "node server/index.js",
     "prerender": "node prerender.js",
