@@ -1,16 +1,18 @@
 {
   "name": "mappa-regionale-mlg",
   "version": "1.0.0",
-  "description": "Static prerender of MLG weather map",
+  "private": true,
   "scripts": {
+    "start": "node server/index.js",
     "prerender": "node prerender.js",
     "deploy:gh-pages": "gh-pages -d gh-pages"
   },
   "dependencies": {
+    "express": "^4.18.2",
+    "leaflet": "^1.9.3"
+  },
+  "devDependencies": {
     "puppeteer": "^20.9.0",
     "gh-pages": "^5.0.0"
-  },
-  "devDependencies": {},
-  "keywords": [],
-  "license": "MIT"
+  }
 }
