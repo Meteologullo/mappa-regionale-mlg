@@ -1,48 +1,54 @@
 // scripts/export-cache.js
-const fs = require("fs");
-const path = require("path");
-const puppeteer = require("puppeteer");
+// Genera dist/index.html pre-renderizzato della tua /src/mlgmap.html
+
+const http = require('http');
+const path = require('path');
+const fs = require('fs');
+const finalhandler = require('finalhandler');
+const serveStatic = require('serve-static');
+const puppeteer = require('puppeteer');
+
+const PORT = process.env.PORT || 8080;
+const serve = serveStatic('.', { index: ['index.html'] });
+
+function startServer() {
+  return new Promise(resolve => {
+    const server = http.createServer((req, res) => serve(req, res, finalhandler(req, res)));
+    server.listen(PORT, () => resolve(server));
+  });
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-  const outDir = path.join(process.cwd(), "data");
-  fs.mkdirSync(outDir, { recursive: true });
+  const server = await startServer();
 
   const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox","--disable-setuid-sandbox"]
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
+
   const page = await browser.newPage();
 
-  // Apriamo la tua pagina vera (serve http-server avviato prima)
-  const url = "http://localhost:8080/src/mlgmap.html?nocache=1";
-  await page.goto(url, { waitUntil: "networkidle2", timeout: 180000 });
+  // Apri il sorgente locale (non la Pages) così usa i file del repo
+  const url = `http://localhost:${PORT}/src/mlgmap.html`;
+  await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
 
-  // Aspetta che la pagina carichi i dataset principali.
-  // Questi nomi sono quelli del tuo file originale (se sono diversi, dimmelo e li cambio):
+  // Aspetta che i marker Leaflet compaiano (Leaflet -> .leaflet-marker-icon)
   await page.waitForFunction(
-    () => window.stazioni && Array.isArray(window.stazioni) && window.stazioni.length > 0,
-    { timeout: 180000 }
-  ).catch(() => {});
+    () => document.querySelectorAll('.leaflet-marker-icon').length > 20,
+    { timeout: 120000 }
+  );
 
-  // Estremi/tabella possono richiedere qualche secondo in più.
-  await page.waitForTimeout(8000);
+  // piccolo extra per far “assestare” la UI
+  await sleep(1500);
 
-  const dump = await page.evaluate(() => {
-    return {
-      stazioni:   (typeof window.stazioni !== "undefined") ? window.stazioni : null,
-      datiTabella:(typeof window.datiTabella !== "undefined") ? window.datiTabella : null,
-      estremi:    (typeof window.extremiGiornalieri !== "undefined") ? window.extremiGiornalieri : null,
-      when: new Date().toISOString()
-    };
-  });
+  const html = await page.content();
+
+  fs.mkdirSync('dist', { recursive: true });
+  fs.writeFileSync(path.join('dist', 'index.html'), html, 'utf8');
 
   await browser.close();
+  server.close();
 
-  // Salva i json (anche separati se preferisci)
-  fs.writeFileSync(path.join(outDir, "stazioni.json"), JSON.stringify(dump.stazioni || [], null, 2));
-  fs.writeFileSync(path.join(outDir, "datiTabella.json"), JSON.stringify(dump.datiTabella || [], null, 2));
-  fs.writeFileSync(path.join(outDir, "estremi.json"), JSON.stringify(dump.estremi || {}, null, 2));
-  fs.writeFileSync(path.join(outDir, "last.json"), JSON.stringify(dump, null, 2));
-
-  console.log("Esportati JSON in:", outDir);
+  console.log('✅ dist/index.html generato');
 })();
