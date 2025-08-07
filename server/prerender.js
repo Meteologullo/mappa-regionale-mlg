@@ -18,12 +18,16 @@ const express = require('express');
 
     console.log('🌐 Carico pagina...');
     await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
-      waitUntil: 'networkidle0'
+      waitUntil: 'domcontentloaded', // meno severo di networkidle0
+      timeout: 60000 // aumenta timeout a 60s
     });
+
+    // aspetta manualmente altri 5 secondi per essere sicuro
+    await page.waitForTimeout(5000);
 
     const content = await page.content();
     const outputPath = path.join(__dirname, '..', 'dist');
-    if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath);
+    if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath, { recursive: true });
     fs.writeFileSync(path.join(outputPath, 'index.html'), content);
 
     console.log('✅ Pagina renderizzata salvata!');
