@@ -1,7 +1,7 @@
 {
   "name": "mlgmap-prerender",
   "version": "1.0.0",
-  "main": "prerender.js",
+  "main": "server/prerender.js",
   "scripts": {
     "build": "node server/prerender.js"
   },
