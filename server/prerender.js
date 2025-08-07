@@ -7,7 +7,7 @@ const { setTimeout: delay } = require('timers/promises');
 (async () => {
   const ROOT = path.join(__dirname, '..');
   const DIST = path.join(ROOT, 'dist');
-  const OUT  = path.join(DIST, 'index.html');   // 👈 era mlgmap.html
+  const OUT  = path.join(DIST, 'index.html');        // output finale
   const PORT = 8080;
 
   /* server statico temporaneo */
@@ -24,14 +24,14 @@ const { setTimeout: delay } = require('timers/promises');
     });
 
     const page = await browser.newPage();
-    console.log('🗺️  Carico mlgmap.html…');
+    console.log('🗺️  Carico src/mlgmap.html…');
 
-    await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
+    await page.goto(`http://localhost:${PORT}/src/mlgmap.html`, {
       waitUntil: 'networkidle2',
-      timeout: 180_000
+      timeout: 180_000            // 3 minuti
     });
 
-    await delay(500);   // piccola attesa extra
+    await delay(500);             // piccola attesa extra
 
     const html = await page.content();
     fs.mkdirSync(DIST, { recursive: true });
@@ -47,3 +47,4 @@ const { setTimeout: delay } = require('timers/promises');
     process.exit(1);
   }
 })();
+
