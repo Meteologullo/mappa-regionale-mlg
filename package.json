@@ -1,8 +1,10 @@
 {
   "name": "mlgmap-prerender",
   "version": "1.0.0",
-  "main": "server/prerender.js",
+  "description": "Prerender della mappa per GitHub Pages",
+  "main": "server/index.js",
   "scripts": {
+    "start": "node server/index.js",
     "build": "node server/prerender.js"
   },
   "dependencies": {
