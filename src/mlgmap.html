@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 
-<!-- rimuove vecchi Service Worker -->
+<!-- kill any old Service Worker, then reload pure '/' -->
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations()
-    .then(regs => regs.forEach(r => r.unregister()));
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    if (regs.length) {
+      regs.forEach(r => r.unregister());
+      /* ricarica TUTTA la pagina senza SW e senza cache */
+      location.replace('/');
+    }
+  });
 }
-
-/*  -- RIMOSSO REDIRECT LEGACY --
-if (!location.pathname.endsWith('mlgmap.html'))
-  location.href = 'mlgmap.html';
-*/
 </script>
 
 <html lang="it">
@@ -9023,5 +9023,6 @@ function visualizzaRaffiche() {
 })();
 </script>
 <!-- ========= /FASTLOAD PATCH 2025‑07‑24 v8.1 ========= -->
+
 
 
