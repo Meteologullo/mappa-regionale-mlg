@@ -1,25 +1,31 @@
 <!DOCTYPE html>
 
-<!-- kill any old Service Worker, poi ricarica la root della repo -->
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    if (regs.length) {
-      regs.forEach(r => r.unregister());
-      /* ricarica la root della repo */
-      location.replace('/mappa-regionale-mlg/');
-    }
-  });
-}
-</script>
-
 <html lang="it">
 <head>
-
 <!-- Performance hints: preconnect -->
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
   <link rel="preconnect" href="https://tile.openstreetmap.org">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js">/* === Leaflet MarkerCluster auto‑patch === */
+if (typeof L !== 'undefined' && window.STAZIONI && Array.isArray(window.STAZIONI)) {
+  try {
+    const cluster = L.markerClusterGroup();
+    window.STAZIONI.forEach(s => {
+      if(s.lat && s.lon){
+        const m = L.marker([s.lat, s.lon])
+                   .bindPopup(`<b>${s.nome || ''}</b><br>Temp: ${s.temp ?? '--'} °C`);
+        cluster.addLayer(m);
+      }
+    });
+    if (typeof map !== 'undefined') {
+      map.addLayer(cluster);
+    }
+  } catch(e){ console.error('MarkerCluster patch error', e); }
+}
+/* === end patch === */
+</script>
 <style id="hideMarkerOpacity">.leaflet-marker-icon,.leaflet-marker-shadow{opacity:0;transition:opacity 0.15s linear;}</style>
 <meta charset="utf-8"/>
 <title>Mappa Meteo Calabria</title>
@@ -9024,8 +9030,3 @@ function visualizzaRaffiche() {
 })();
 </script>
 <!-- ========= /FASTLOAD PATCH 2025‑07‑24 v8.1 ========= -->
-
-
-
-
-
