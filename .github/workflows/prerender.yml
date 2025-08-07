@@ -1,13 +1,14 @@
-name: Prerender Mappa Calda
+name: Prerender mlgmap
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Ogni 10 minuti
+    - cron: "*/10 * * * *"  # ogni 10 minuti
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -15,10 +16,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: "18"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run prerender script
         run: npm run build
