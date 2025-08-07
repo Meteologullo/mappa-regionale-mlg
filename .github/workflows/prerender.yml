@@ -1,26 +1,36 @@
-name: Build and Deploy
+name: Build & Deploy
 
 on:
+  push:
+    branches: [main]
   schedule:
-    - cron: '*/10 * * * *'  # ogni 10 minuti
+    - cron: '*/10 * * * *'      # ogni 10 minuti
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
 
-      - name: Setup Node.js
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20'
 
-      - name: Install dependencies
-        run: npm install
+      - name: System deps for Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+            libgtk-3-0 libxss1 libxshmfence1 libasound2 \
+            libpangocairo-1.0-0
 
-      - name: Run prerender script
+      - name: Install npm deps
+        run: npm install --omit=dev
+
+      - name: Run prerender
         run: npm run build
 
       - name: Deploy to GitHub Pages
@@ -28,4 +38,3 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-
