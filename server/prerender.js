@@ -9,11 +9,11 @@ const puppeteer = require('puppeteer');
   const OUT  = path.join(DIST, 'mlgmap.html');
   const PORT = 8080;
 
-  // server statico
+  /* --- server statico temporaneo --- */
   const app = express();
   app.use(express.static(ROOT));
   const server = app.listen(PORT, () =>
-    console.log(`🌐 Server locale su http://localhost:${PORT}`)
+    console.log(`🌐  Server locale su http://localhost:${PORT}`)
   );
 
   try {
@@ -27,22 +27,22 @@ const puppeteer = require('puppeteer');
 
     await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
       waitUntil: 'networkidle2',
-      timeout: 180000            // 3 min
+      timeout: 180_000          // 3 minuti
     });
 
-    // se serve altro tempo per far disegnare i marker:
+    /* se la mappa disegna marker asincroni aumenta la pausa */
     await page.waitForTimeout(500);
 
     const html = await page.content();
     fs.mkdirSync(DIST, { recursive: true });
     fs.writeFileSync(OUT, html);
-    console.log(`✅ Salvato in ${OUT}`);
+    console.log(`✅  Pagina renderizzata in ${OUT}`);
 
     await browser.close();
     server.close();
     process.exit(0);
   } catch (err) {
-    console.error('❌ Prerender fallito:', err);
+    console.error('❌  Prerender fallito:', err);
     server.close();
     process.exit(1);
   }
