@@ -10,6 +10,7 @@ app.use(express.static(path.join(__dirname, '..')));
 const server = app.listen(PORT, () => {
   console.log('🚀 Server avviato');
 
+  // FUNZIONE ASINCRONA CORRETTA
   (async () => {
     try {
       const browser = await puppeteer.launch({
@@ -22,7 +23,7 @@ const server = app.listen(PORT, () => {
       console.log('🌍 Carico la pagina...');
       await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
         waitUntil: 'networkidle2',
-        timeout: 180000 // 3 minuti
+        timeout: 180000
       });
 
       const html = await page.content();
@@ -40,5 +41,5 @@ const server = app.listen(PORT, () => {
       server.close();
       process.exit(1);
     }
-  })();
+  })(); // CHIUSA LA FUNZIONE IMMEDIATAMENTE INVOCA
 });
