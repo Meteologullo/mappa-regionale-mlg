@@ -1,13 +1,19 @@
 <!DOCTYPE html>
 
-<!-- kill any old Service Worker, then reload pure '/' -->
+<!-- kill any old Service Worker, poi ricarica la root della repo -->
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
     if (regs.length) {
       regs.forEach(r => r.unregister());
-      /* ricarica TUTTA la pagina senza SW e senza cache */
-      location.replace('/');
+
+      /* calcola la root del progetto, es:
+         /mappa-regionale-mlg/  oppure  /mappa-regionale-mlg */
+      const repoRoot = location.pathname
+        .replace(/(mlgmap|index)\.html$/, '')
+        .replace(/\/+$/, '') + '/';
+
+      location.replace(repoRoot);
     }
   });
 }
@@ -9023,6 +9029,7 @@ function visualizzaRaffiche() {
 })();
 </script>
 <!-- ========= /FASTLOAD PATCH 2025‑07‑24 v8.1 ========= -->
+
 
 
 
