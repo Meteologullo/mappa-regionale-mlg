@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Caricamento mappa…</title>
+  <!-- Prova a prefetchare l’originale -->
+  <link rel="prefetch" href="/src/mlgmap.html" as="document" />
+  <style>
+    html,body{height:100%;margin:0;font-family:system-ui,Segoe UI,Roboto,Arial}
+    .box{height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.75rem}
+    .spin{width:36px;height:36px;border-radius:50%;border:4px solid #ccc;border-top-color:#1976d2;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    small{opacity:.7}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="spin"></div>
+    <div>Sto preparando la mappa…</div>
+    <small>la prossima volta sarà più veloce 😉</small>
+  </div>
+
+  <script>
+    (async () => {
+      try {
+        if ('serviceWorker' in navigator) {
+          try {
+            // registra il SW alla radice: controllerà anche /src/
+            await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          } catch(e) { /* ok, andiamo avanti lo stesso */ }
+        }
+        // piccolo respiro per dare tempo al SW
+        setTimeout(() => location.replace('/src/mlgmap.html'), 400);
+      } catch(e) {
+        location.replace('/src/mlgmap.html');
+      }
+    })();
+  </script>
+</body>
+</html>
