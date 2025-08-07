@@ -6,14 +6,8 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(regs => {
     if (regs.length) {
       regs.forEach(r => r.unregister());
-
-      /* calcola la root del progetto, es:
-         /mappa-regionale-mlg/  oppure  /mappa-regionale-mlg */
-      const repoRoot = location.pathname
-        .replace(/(mlgmap|index)\.html$/, '')
-        .replace(/\/+$/, '') + '/';
-
-      location.replace(repoRoot);
+      /* ricarica la root della repo */
+      location.replace('/mappa-regionale-mlg/');
     }
   });
 }
@@ -21,6 +15,7 @@ if ('serviceWorker' in navigator) {
 
 <html lang="it">
 <head>
+
 <!-- Performance hints: preconnect -->
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
@@ -9029,6 +9024,7 @@ function visualizzaRaffiche() {
 })();
 </script>
 <!-- ========= /FASTLOAD PATCH 2025‑07‑24 v8.1 ========= -->
+
 
 
 
