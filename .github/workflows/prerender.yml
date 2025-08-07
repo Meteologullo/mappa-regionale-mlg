@@ -4,15 +4,15 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '*/10 * * * *'      # ogni 10 minuti
+    - cron: '*/10 * * * *'   # ogni 10 minuti
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    runs-on: ubuntu-22.04     # 👉 blocchiamo la versione per evitare i pacchetti *t64*
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Setup Node
         uses: actions/setup-node@v3
