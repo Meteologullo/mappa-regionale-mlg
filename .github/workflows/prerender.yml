@@ -1,40 +1,32 @@
-name: Build & Deploy
+name: Build and Deploy (prerender)
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch: {}
   schedule:
-    - cron: '*/10 * * * *'   # ogni 10 minuti
-  workflow_dispatch:
+    - cron: "*/10 * * * *"
 
 jobs:
   build:
-    runs-on: ubuntu-22.04     # 👉 blocchiamo la versione per evitare i pacchetti *t64*
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
 
-      - name: System deps for Chromium
+      - name: Install tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-            libgtk-3-0 libxss1 libxshmfence1 libasound2 \
-            libpangocairo-1.0-0
-
-      - name: Install npm deps
-        run: npm install --omit=dev
+          npm i puppeteer serve-static finalhandler
 
       - name: Run prerender
-        run: npm run build
+        run: node prerender.js
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
+          publish_branch: gh-pages
+          force_orphan: true
