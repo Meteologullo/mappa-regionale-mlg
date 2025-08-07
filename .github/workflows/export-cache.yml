@@ -1,0 +1,37 @@
+name: Export map data (every 10 min)
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm i --no-audit --no-fund puppeteer http-server
+
+      - name: Start local server
+        run: npx http-server -p 8080 -c-1 . &
+      
+      - name: Export runtime data
+        run: node scripts/export-cache.js
+
+      - name: Publish to gh-pages:/data
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: data
+          destination_dir: data
+          keep_files: true
