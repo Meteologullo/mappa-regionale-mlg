@@ -25,7 +25,8 @@ const server = app.listen(PORT, async () => {
     const content = await page.content();
 
     if (!fs.existsSync("dist")) fs.mkdirSync("dist");
-    fs.writeFileSync(path.join("dist", "index.html"), content); // output statico
+    fs.writeFileSync(path.join("dist", "index.html"), content); // output mappa
+    fs.copyFileSync("start.html", path.join("dist", "start.html")); // redirect page
 
     await browser.close();
     console.log("✅ Prerender completato");
