@@ -1,5 +1,5 @@
 const express = require('express');
-const path = require('path');
+const path    = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 8080;
@@ -7,5 +7,5 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static(path.join(__dirname, '..')));
 
 app.listen(PORT, () =>
-  console.log(`🚀 Server su http://localhost:${PORT}`)
+  console.log(`🚀  Server su http://localhost:${PORT}`)
 );
