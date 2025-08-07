@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 
-<!-- rimuove eventuali vecchi Service Worker -->
+<!-- rimuove vecchi Service Worker -->
 <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations()
-      .then(regs => regs.forEach(r => r.unregister()));
-  }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then(regs => regs.forEach(r => r.unregister()));
+}
+
+/*  -- RIMOSSO REDIRECT LEGACY --
+if (!location.pathname.endsWith('mlgmap.html'))
+  location.href = 'mlgmap.html';
+*/
 </script>
 
 <html lang="it">
@@ -9018,4 +9023,5 @@ function visualizzaRaffiche() {
 })();
 </script>
 <!-- ========= /FASTLOAD PATCH 2025‑07‑24 v8.1 ========= -->
+
 
