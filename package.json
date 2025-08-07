@@ -1,14 +1,14 @@
 {
-  "name": "mappa-regionale-mlg",
+  "name": "mappa-regionale",
   "version": "1.0.0",
-  "description": "Mappa regionale prerenderizzata per GitHub Pages",
+  "description": "Prerender della mappa regionale",
   "main": "index.js",
   "scripts": {
     "start": "node server/index.js",
-    "prerender": "node prerender.js"
+    "prerender": "node server/prerender.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "puppeteer": "^21.11.0"
+    "puppeteer": "^22.0.0"
   }
 }
