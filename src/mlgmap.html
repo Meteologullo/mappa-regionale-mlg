@@ -1,5 +1,13 @@
 <!DOCTYPE html>
 
+<!-- rimuove eventuali vecchi Service Worker -->
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then(regs => regs.forEach(r => r.unregister()));
+  }
+</script>
+
 <html lang="it">
 <head>
 <!-- Performance hints: preconnect -->
@@ -9010,3 +9018,4 @@ function visualizzaRaffiche() {
 })();
 </script>
 <!-- ========= /FASTLOAD PATCH 2025‑07‑24 v8.1 ========= -->
+
