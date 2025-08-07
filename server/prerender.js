@@ -5,9 +5,9 @@ const puppeteer = require('puppeteer');
 const { setTimeout: delay } = require('timers/promises');
 
 (async () => {
-  const ROOT = path.join(__dirname, '..');
-  const DIST = path.join(ROOT, 'dist');
-  const OUT  = path.join(DIST, 'index.html');        // output finale
+  const ROOT = path.join(__dirname, '..');        // cartella repo
+  const DIST = path.join(ROOT, 'dist');           // cartella da pubblicare
+  const OUT  = path.join(DIST, 'index.html');     // 👉 output finale
   const PORT = 8080;
 
   /* server statico temporaneo */
@@ -28,10 +28,10 @@ const { setTimeout: delay } = require('timers/promises');
 
     await page.goto(`http://localhost:${PORT}/src/mlgmap.html`, {
       waitUntil: 'networkidle2',
-      timeout: 180_000            // 3 minuti
+      timeout: 180_000
     });
 
-    await delay(500);             // piccola attesa extra
+    await delay(500);           // attesa extra
 
     const html = await page.content();
     fs.mkdirSync(DIST, { recursive: true });
@@ -47,4 +47,3 @@ const { setTimeout: delay } = require('timers/promises');
     process.exit(1);
   }
 })();
-
