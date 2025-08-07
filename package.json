@@ -1,8 +1,11 @@
 {
   "name": "mappa-regionale-mlg",
   "version": "1.0.0",
+  "description": "Mappa regionale prerenderizzata per GitHub Pages",
+  "main": "index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "prerender": "node prerender.js"
   },
   "dependencies": {
     "express": "^4.18.2",
