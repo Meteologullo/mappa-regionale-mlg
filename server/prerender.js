@@ -9,31 +9,28 @@ const outputDir = path.join(__dirname, '..', 'dist');
 const outputPath = path.join(outputDir, 'index.html');
 
 (async () => {
-  console.log('🚀 Server avviato');
+  console.log('🚀 Avvio server statico...');
   const app = express();
   app.use(express.static(path.join(__dirname, '..')));
   const server = app.listen(PORT);
 
   try {
-    console.log('🌀 Avvio browser headless');
+    console.log('🌀 Avvio browser headless...');
     const browser = await puppeteer.launch({
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
+
     const page = await browser.newPage();
 
-    console.log('⏳ Carico la pagina...');
+    console.log('⏳ Apro pagina mlgmap...');
     await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
-      waitUntil: 'networkidle0',
-      timeout: 60000
+      waitUntil: 'networkidle2',
+      timeout: 180000 // 3 minuti
     });
 
-    // Attendi che Leaflet abbia caricato almeno una tile
-    await page.waitForSelector('.leaflet-tile-loaded', { timeout: 30000 });
+    console.log('⌛ Attesa extra 5 secondi per sicurezza...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // Attendi anche un po' extra per sicurezza
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    console.log('📦 Salvo HTML statico');
     const html = await page.content();
 
     if (!fs.existsSync(outputDir)) {
@@ -41,7 +38,7 @@ const outputPath = path.join(outputDir, 'index.html');
     }
 
     fs.writeFileSync(outputPath, html);
-    console.log(`✅ HTML salvato in: ${outputPath}`);
+    console.log(`✅ HTML statico salvato in: ${outputPath}`);
 
     await browser.close();
     server.close();
@@ -52,4 +49,3 @@ const outputPath = path.join(outputDir, 'index.html');
     process.exit(1);
   }
 })();
-
