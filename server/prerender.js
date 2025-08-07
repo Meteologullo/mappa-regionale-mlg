@@ -2,6 +2,7 @@ const express   = require('express');
 const path      = require('path');
 const fs        = require('fs');
 const puppeteer = require('puppeteer');
+const { setTimeout: delay } = require('timers/promises');
 
 (async () => {
   const ROOT = path.join(__dirname, '..');
@@ -9,7 +10,6 @@ const puppeteer = require('puppeteer');
   const OUT  = path.join(DIST, 'mlgmap.html');
   const PORT = 8080;
 
-  /* --- server statico temporaneo --- */
   const app = express();
   app.use(express.static(ROOT));
   const server = app.listen(PORT, () =>
@@ -27,11 +27,10 @@ const puppeteer = require('puppeteer');
 
     await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
       waitUntil: 'networkidle2',
-      timeout: 180_000          // 3 minuti
+      timeout: 180_000
     });
 
-    /* se la mappa disegna marker asincroni aumenta la pausa */
-    await page.waitForTimeout(500);
+    await delay(500);          // piccola attesa
 
     const html = await page.content();
     fs.mkdirSync(DIST, { recursive: true });
