@@ -13,7 +13,7 @@ const server = app.listen(PORT, async () => {
 
   try {
     const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
 
     const page = await browser.newPage();
@@ -25,11 +25,14 @@ const server = app.listen(PORT, async () => {
     const content = await page.content();
 
     if (!fs.existsSync("dist")) fs.mkdirSync("dist");
-    fs.writeFileSync(path.join("dist", "index.html"), content); // output mappa
-    fs.copyFileSync("start.html", path.join("dist", "start.html")); // redirect page
+    fs.writeFileSync(path.join("dist", "index.html"), content);
+    console.log("✅ Prerender completato");
+
+    // 👇 Copia start.html nella cartella dist
+    fs.copyFileSync("start.html", path.join("dist", "start.html"));
+    console.log("✅ Copiato start.html nella cartella dist");
 
     await browser.close();
-    console.log("✅ Prerender completato");
 
     server.close(() => {
       console.log("🔒 Server chiuso.");
@@ -40,4 +43,3 @@ const server = app.listen(PORT, async () => {
     server.close(() => process.exit(1));
   }
 });
-
