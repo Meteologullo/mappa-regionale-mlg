@@ -1,81 +1,75 @@
-/* SW – cache “add-only”, nessuna modifica al codice originale */
-const VERSION = 'mlg-sw-v1';
-const STATIC_CACHE = `${VERSION}-static`;
-const RUNTIME_CACHE = `${VERSION}-runtime`;
+// sw.js
+const VERSION = 'v4';
+const STATIC_CACHE = `static-${VERSION}`;
+const RUNTIME_CACHE = `runtime-${VERSION}`;
+const PRECACHE_URLS = [
+  '/',                     // index prerenderizzato
+  '/index.html',
+  '/src/mlgmap.html',      // sorgente (fallback)
+  '/scripts/stazioni.json' // snapshot stazioni (se presente)
+];
 
-// domini “statici” tipici (aggiungi se ne hai altri)
-const STATIC_HOSTS = new Set([
-  self.location.host,            // questo sito (GitHub Pages del repo)
-  'unpkg.com',
-  'cdnjs.cloudflare.com',
-  'cdn.jsdelivr.net',
-  'tile.openstreetmap.org',
-]);
+// CDN/Libs usate dalla pagina (aggiungi qui le tue, se servono)
+const LIBS = [
+  'https://unpkg.com/leaflet/dist/leaflet.css',
+  'https://unpkg.com/leaflet/dist/leaflet.js',
+  'https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js',
+  'https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css',
+  'https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css'
+];
+PRECACHE_URLS.push(...LIBS);
 
-self.addEventListener('install', (evt) => {
-  // niente precache aggressivo: la pagina originale è dinamica
+self.addEventListener('install', (e) => {
   self.skipWaiting();
-});
-
-self.addEventListener('activate', (evt) => {
-  evt.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys
-        .filter(k => !k.startsWith(VERSION))
-        .map(k => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
+  e.waitUntil(
+    caches.open(STATIC_CACHE).then(c => c.addAll(PRECACHE_URLS).catch(()=>{}))
   );
 });
 
-/* helper: cache-first */
-async function cacheFirst(req, cacheName) {
-  const cache = await caches.open(cacheName);
-  const hit = await cache.match(req, { ignoreVary: true });
-  if (hit) {
-    // aggiorna in background
-    fetch(req).then(res => {
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => (k.startsWith('static-') || k.startsWith('runtime-')) && k !== STATIC_CACHE && k !== RUNTIME_CACHE ? caches.delete(k) : undefined));
+    await self.clients.claim();
+  })());
+});
+
+// runtime caching:
+// - Tiles OSM → cache-first (con fallback rete) + TTL implicito
+// - JSON/dati → stale-while-revalidate
+const OSM_RE = /^https:\/\/[abc]\.tile\.openstreetmap\.org\//;
+
+self.addEventListener('fetch', (e) => {
+  const req = e.request;
+
+  // ignora metodi non-GET
+  if (req.method !== 'GET') return;
+
+  // tiles OSM: cache-first
+  if (OSM_RE.test(req.url)) {
+    e.respondWith((async () => {
+      const cache = await caches.open(RUNTIME_CACHE);
+      const hit = await cache.match(req);
+      if (hit) return hit;
+      try {
+        const res = await fetch(req, {mode:'cors'});
+        if (res.ok) cache.put(req, res.clone());
+        return res;
+      } catch {
+        return hit || Response.error();
+      }
+    })());
+    return;
+  }
+
+  // tutto il resto: stale-while-revalidate
+  e.respondWith((async () => {
+    const cache = await caches.open(RUNTIME_CACHE);
+    const hit = await cache.match(req);
+    const fetchPromise = fetch(req).then(res => {
       if (res && res.ok) cache.put(req, res.clone());
-    }).catch(()=>{});
-    return hit;
-  }
-  const res = await fetch(req);
-  if (res && res.ok) cache.put(req, res.clone());
-  return res;
-}
-
-/* helper: network-first con fallback al cache */
-async function networkFirst(req, cacheName) {
-  const cache = await caches.open(cacheName);
-  try {
-    const res = await fetch(req);
-    if (res && res.ok) cache.put(req, res.clone());
-    return res;
-  } catch (e) {
-    const hit = await cache.match(req, { ignoreVary: true });
-    if (hit) return hit;
-    throw e;
-  }
-}
-
-self.addEventListener('fetch', (evt) => {
-  const url = new URL(evt.request.url);
-
-  // Solo GET
-  if (evt.request.method !== 'GET') return;
-
-  // Per l’HTML del sito (incluso /src/mlgmap.html): cache-first
-  if (url.origin === location.origin && url.pathname.endsWith('.html')) {
-    evt.respondWith(cacheFirst(evt.request, STATIC_CACHE));
-    return;
-  }
-
-  // Risorse statiche note (leaflet, css/js cdn, tiles): cache-first
-  if (STATIC_HOSTS.has(url.host)) {
-    evt.respondWith(cacheFirst(evt.request, STATIC_CACHE));
-    return;
-  }
-
-  // Tutto il resto (API, json dinamici): network-first con fallback
-  evt.respondWith(networkFirst(evt.request, RUNTIME_CACHE));
+      return res;
+    }).catch(() => hit || Response.error());
+    return hit || fetchPromise;
+  })());
 });
