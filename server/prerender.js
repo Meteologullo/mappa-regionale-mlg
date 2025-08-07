@@ -7,9 +7,10 @@ const { setTimeout: delay } = require('timers/promises');
 (async () => {
   const ROOT = path.join(__dirname, '..');
   const DIST = path.join(ROOT, 'dist');
-  const OUT  = path.join(DIST, 'mlgmap.html');
+  const OUT  = path.join(DIST, 'index.html');   // 👈 era mlgmap.html
   const PORT = 8080;
 
+  /* server statico temporaneo */
   const app = express();
   app.use(express.static(ROOT));
   const server = app.listen(PORT, () =>
@@ -30,7 +31,7 @@ const { setTimeout: delay } = require('timers/promises');
       timeout: 180_000
     });
 
-    await delay(500);          // piccola attesa
+    await delay(500);   // piccola attesa extra
 
     const html = await page.content();
     fs.mkdirSync(DIST, { recursive: true });
