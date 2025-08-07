@@ -29,3 +29,12 @@ const puppeteer = require('puppeteer');
   await page.waitForTimeout(3000);
 
   // Prendi il contenuto HTML completo
+  const html = await page.content();
+
+  // Scrivi l'output in dist/index.html
+  const outputPath = path.join('dist', 'index.html');
+  fs.writeFileSync(outputPath, html);
+
+  // Chiudi il browser
+  await browser.close();
+})();
