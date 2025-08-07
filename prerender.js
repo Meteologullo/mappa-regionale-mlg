@@ -1,40 +1,44 @@
-#!/usr/bin/env node
-
+const express = require('express');
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer');
 
-(async () => {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
+const PORT = 3000;
+const app = express();
+app.use(express.static(path.join(__dirname, '..')));
 
-  const page = await browser.newPage();
-  const url = 'http://localhost:8080/mlgmap.html';
+const server = app.listen(PORT, () => {
+  console.log('🚀 Server avviato');
 
-  // Carica la mappa
-  await page.goto(url, { waitUntil: 'networkidle0', timeout: 120000 });
+  (async () => {
+    try {
+      const browser = await puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
 
-  // ✅ Esegui uno zoom per forzare il caricamento di marker "nascosti"
-  await page.evaluate(() => {
-    // ⚠️ Assumiamo che la mappa sia accessibile come `window.map`
-    const map = window.map;
-    if (map && typeof map.setZoom === "function") {
-      map.setZoom(10); // Cambia il livello se necessario
+      const page = await browser.newPage();
+
+      console.log('🌍 Carico la pagina...');
+      await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
+        waitUntil: 'networkidle2',
+        timeout: 180000 // 3 minuti
+      });
+
+      const html = await page.content();
+
+      const outputDir = path.join(__dirname, '..', 'dist');
+      if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+      fs.writeFileSync(path.join(outputDir, 'mlgmap.html'), html);
+
+      console.log('✅ Pagina salvata in dist/mlgmap.html');
+
+      await browser.close();
+      server.close();
+    } catch (error) {
+      console.error('❌ Errore nel prerender:', error);
+      server.close();
+      process.exit(1);
     }
-  });
-
-  // Aspetta che i nuovi marker vengano renderizzati
-  await page.waitForTimeout(3000);
-
-  // Prendi il contenuto HTML completo
-  const html = await page.content();
-
-  // Scrivi l'output in dist/index.html
-  const outputPath = path.join('dist', 'index.html');
-  fs.writeFileSync(outputPath, html);
-
-  // Chiudi il browser
-  await browser.close();
-})();
+  })();
+});
