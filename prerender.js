@@ -1,50 +1,56 @@
-const express   = require('express');
-const path      = require('path');
-const fs        = require('fs');
+// prerender.js
+const http = require('http');
+const path = require('path');
+const fs = require('fs');
+const finalhandler = require('finalhandler');
+const serveStatic = require('serve-static');
 const puppeteer = require('puppeteer');
-const { setTimeout: delay } = require('timers/promises');   // ⬅️ NUOVO
+
+const PORT = 8080;
+const serve = serveStatic('.', { index: ['index.html'] });
+
+async function startServer() {
+  return new Promise(resolve => {
+    const server = http.createServer((req, res) => serve(req, res, finalhandler(req, res)));
+    server.listen(PORT, () => resolve(server));
+  });
+}
 
 (async () => {
-  const ROOT = path.join(__dirname, '..');
-  const DIST = path.join(ROOT, 'dist');
-  const OUT  = path.join(DIST, 'mlgmap.html');
-  const PORT = 8080;
+  const server = await startServer();
+  const browser = await puppeteer.launch({args:['--no-sandbox']});
+  const page = await browser.newPage();
 
-  /* --- server statico temporaneo --- */
-  const app = express();
-  app.use(express.static(ROOT));
-  const server = app.listen(PORT, () =>
-    console.log(`🌐  Server locale su http://localhost:${PORT}`)
+  // Apri il sorgente (non la pages) così usi i file locali
+  const url = `http://localhost:${PORT}/src/mlgmap.html`;
+  await page.goto(url, { waitUntil: 'networkidle2', timeout: 120000 });
+
+  // aspetta che i marker siano montati (senza toccare il tuo codice)
+  await page.waitForFunction(
+    'document.querySelectorAll(".leaflet-marker-icon").length > 30',
+    { timeout: 120000 }
   );
 
-  try {
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+  // inietta redirezione all’avvio verso / (così l’utente entra sempre da index)
+  await page.addScriptTag({content: `
+    if (location.pathname.endsWith('/src/mlgmap.html')) {
+      window.addEventListener('load', () => {
+        // la pagina è già pronta, ma ricaricherà su / per far valere l'SW
+        if (!sessionStorage.__fromPrerender) {
+          sessionStorage.__fromPrerender = '1';
+          location.replace('../');
+        }
+      });
+    }
+  `});
 
-    const page = await browser.newPage();
-    console.log('🗺️  Carico mlgmap.html…');
+  const html = await page.content();
+  const outDir = path.join('dist');
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, 'index.html'), html, 'utf8');
 
-    await page.goto(`http://localhost:${PORT}/mlgmap.html`, {
-      waitUntil: 'networkidle2',
-      timeout: 180_000        // 3 min
-    });
+  await browser.close();
+  server.close();
 
-    /* piccola attesa extra (500 ms) */
-    await delay(500);
-
-    const html = await page.content();
-    fs.mkdirSync(DIST, { recursive: true });
-    fs.writeFileSync(OUT, html);
-    console.log(`✅  Pagina renderizzata in ${OUT}`);
-
-    await browser.close();
-    server.close();
-    process.exit(0);
-  } catch (err) {
-    console.error('❌  Prerender fallito:', err);
-    server.close();
-    process.exit(1);
-  }
+  console.log('✅ Prerender ok → dist/index.html');
 })();
