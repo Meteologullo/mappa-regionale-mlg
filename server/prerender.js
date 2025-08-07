@@ -1,31 +1,26 @@
 const fs = require('fs');
 const path = require('path');
 
-// QUI puoi incollare la tua mappa HTML vera e propria (o importar da file)
-const html = `
-<!DOCTYPE html>
-<html lang="it">
-<head>
-  <meta charset="UTF-8">
-  <title>Mappa Calda</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body>
-  <h1>Mappa Regionale Calda</h1>
-  <p>Qui va inserito il contenuto HTML vero della mappa!</p>
-</body>
-</html>
-`;
+// Percorso del file HTML sorgente (quello con la mappa vera)
+const inputPath = path.join(__dirname, '..', 'mlgmap.html');
 
-// Percorso di output
+// Percorso della cartella di output
 const outputDir = path.join(__dirname, '..', 'dist');
 const outputPath = path.join(outputDir, 'index.html');
 
-// Crea la cartella dist se non esiste
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
-}
+try {
+  // Leggi il contenuto del file HTML
+  const html = fs.readFileSync(inputPath, 'utf8');
 
-// Scrive il file HTML
-fs.writeFileSync(outputPath, html);
-console.log(`✅ File HTML prerenderizzato creato in: ${outputPath}`);
+  // Crea la cartella dist se non esiste
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  // Scrivi il file nella cartella dist
+  fs.writeFileSync(outputPath, html);
+  console.log(`✅ File HTML copiato in: ${outputPath}`);
+} catch (err) {
+  console.error('❌ Errore nella generazione del file HTML:', err);
+  process.exit(1);
+}
