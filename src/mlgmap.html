@@ -3090,13 +3090,16 @@ var map = L.map("map", {
   gestureHandling: true,
   zoomControl: false
 });
+// Forza trascinamento con un dito: disabilita il plugin GestureHandling
+if (map.gestureHandling && map.gestureHandling.disable) { map.gestureHandling.disable(); }
+
 
 map.on('popupopen', function (e) {
   map.gestureHandling.disable();
 });
 
 map.on('popupclose', function (e) {
-  map.gestureHandling.enable();
+  map.gestureHandling.disable();
 });
 map.setView([38.9, 16.3], 8);
 
@@ -3109,11 +3112,11 @@ map.on('popupopen', function (e) {
   });
 
   popupEl.addEventListener('touchend', function () {
-    map.gestureHandling.enable();
+    map.gestureHandling.disable();
   });
 
   popupEl.addEventListener('touchcancel', function () {
-    map.gestureHandling.enable();
+    map.gestureHandling.disable();
   });
 });
 
@@ -3126,7 +3129,7 @@ map.on('popupopen', function (e) {
   });
 
   popupEl.addEventListener('touchend', function () {
-    map.gestureHandling.enable();
+    map.gestureHandling.disable();
   });
 });
 
@@ -9030,4 +9033,3 @@ function visualizzaRaffiche() {
 })();
 </script>
 <!-- ========= /FASTLOAD PATCH 2025‑07‑24 v8.1 ========= -->
-
