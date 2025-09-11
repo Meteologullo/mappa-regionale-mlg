@@ -2,6 +2,91 @@
 
 <html lang="it">
 <head>
+<!-- MLG Banner Component (injected) -->
+<style>
+:root{
+      --mlg-bg-start:#1437c4;
+      --mlg-bg-end:#0b2a8a;
+      --mlg-pill-bg:rgba(255,255,255,.14);
+      --mlg-pill-br:rgba(255,255,255,.22);
+      --mlg-pill-text:#eaf0ff;
+      --mlg-text:#fff;
+    }
+
+    /* (opzionale) rimuovi il margine di default, se vuoi il banner a filo schermo */
+    
+
+    .mlg-banner{
+      position:sticky; top:0; z-index:1000;
+      background: linear-gradient(180deg,var(--mlg-bg-start),var(--mlg-bg-end));
+      color:var(--mlg-text);
+      border-bottom:1px solid rgba(0,0,0,.25);
+      box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    }
+    .mlg-banner .mlg-inner{
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+      padding:10px 16px;
+    }
+
+    .mlg-title{
+      display:flex; align-items:center; gap:10px;
+      font-weight:800; letter-spacing:.2px;
+      text-shadow:0 1px 0 rgba(0,0,0,.35);
+      margin:0;
+    }
+    .mlg-title h1{
+      font-size:20px; margin:0;
+    }
+    .mlg-dot{
+      width:10px; height:10px; border-radius:50%;
+      background:#b9d3ff; box-shadow: 0 0 0 3px rgba(255,255,255,.15);
+      flex:0 0 auto;
+    }
+
+    .mlg-nav{
+      display:flex; align-items:center; gap:10px;
+      flex-wrap:wrap; margin-left:auto;
+    }
+    .mlg-pill{
+      display:inline-flex; align-items:center; justify-content:center; gap:6px;
+      padding:8px 14px; border-radius:9999px; white-space:nowrap;
+      background:var(--mlg-pill-bg);
+      border:1px solid var(--mlg-pill-br);
+      color:var(--mlg-pill-text);
+      text-decoration:none; font-weight:600; font-size:14px; line-height:1.1;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 1px 1px rgba(0,0,0,.25);
+      backdrop-filter: blur(2px);
+    }
+    .mlg-pill:is(:hover,:focus){ filter:brightness(1.05); }
+
+    /* ——— Mobile ultra-compact ——— */
+    @media (max-width: 860px){
+      .mlg-banner .mlg-inner{
+        padding:6px 10px; row-gap:6px;
+      }
+      /* Titolo centrato al 100% */
+      .mlg-title{ width:100%; justify-content:center; text-align:center; gap:8px; }
+      .mlg-title h1{ font-size:18px; }
+      .mlg-dot{ width:8px; height:8px; box-shadow:0 0 0 2px rgba(255,255,255,.2); }
+
+      /* Pulsanti in UNA RIGA con scroll orizzontale */
+      .mlg-nav{
+        order:2; width:100%;
+        flex-wrap:nowrap; overflow-x:auto; overflow-y:hidden;
+        -webkit-overflow-scrolling:touch; gap:8px; padding:2px 6px 6px;
+        scrollbar-width:none;
+      }
+      .mlg-nav::-webkit-scrollbar{ display:none; }
+      .mlg-pill{ padding:5px 9px; font-size:12px; }
+    }
+
+/* Layout integration: use dynamic banner height */
+:root{ --banner-h: 60px; }
+
+/* Adjust main containers to account for sticky banner height */
+html, body{ scroll-padding-top: var(--banner-h, 60px); }
+</style>
+
 <!-- Performance hints: preconnect -->
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="preconnect" href="https://api.open-meteo.com" crossorigin>
@@ -280,10 +365,11 @@ function visualizzaRaffiche() {
 
 </script>
 <style>
+
    /* Sidebar compatta */
 #sidebar {
   position: fixed;
-  top: 60px;
+  top: var(--banner-h, 60px);
   left: 0;
   width: 36px;
   background-color: #fff;
@@ -312,23 +398,13 @@ function visualizzaRaffiche() {
   background-color: #eef;
 }
 
-body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; background: #f4f4f4; }
+body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; background: #f4f4f4; 
 
-#banner {
-  background-color: #1a3a9b; /* Colore blu */
-  color: white;
-  text-align: center;
-  padding: 10px 0;
-  font-size: 24px;
-  font-weight: bold;
-  position: fixed;
-  top: 0;
-  width: 100%;
-  z-index: 1000;
 }
 
+
 #map {
-  height: calc(100vh - 60px);
+  height: calc(100vh - var(--banner-h, 60px));
   width: 100%;
   border-bottom: 2px solid #ccc;
 }
@@ -414,7 +490,9 @@ body {
   transition: transform 0.3s ease;
 }
 
+
 </style><style>
+
    .card.compact-extreme {
   font-size: 16px;
   font-weight: bold;
@@ -433,11 +511,13 @@ body {
   font-size: 20px;
   color: #c00;
 }
-  </style><style>
+  
+</style><style>
+
    /* Sidebar compatta */
 #sidebar {
   position: fixed;
-  top: 60px;
+  top: var(--banner-h, 60px);
   left: 0;
   width: 36px;
   background-color: #fff;
@@ -467,13 +547,15 @@ body {
 }
 
 html, body {
-  scroll-padding-top: 60px; /* Compensa altezza banner fisso */
+  scroll-padding-top: var(--banner-h, 60px); /* Compensa altezza banner fisso */
 }
-  </style><style>
+  
+</style><style>
+
    /* Sidebar compatta */
 #sidebar {
   position: fixed;
-  top: 60px;
+  top: var(--banner-h, 60px);
   left: 0;
   width: 36px;
   background-color: #fff;
@@ -505,13 +587,17 @@ html, body {
 #slide-banner.show {
   right: 0 !important;
 }
-  </style><style>
+  
+</style><style>
+
    .sidebar-btn.attivo {
   box-shadow: inset 0 0 4px #00000099;
   font-weight: bold;
   border-left: 2px solid #000;
 }
-  </style><style>
+  
+</style><style>
+
    /* Modernizzazione barra laterale */
 #sidebar {
   background: linear-gradient(to bottom, #ffffffcc, #f0f0f0cc);
@@ -543,17 +629,23 @@ html, body {
   border-left: 3px solid #004a99;
   box-shadow: inset 0 0 5px #00000033;
 }
-  </style><style>
+  
+</style><style>
+
    .highlight-temp {
     font-size: 36px;
     font-weight: bold;
 }
-  </style><style>
+  
+</style><style>
+
    .filter-button.active {
     background-color: #337ab7;
     color: white;
 }
-  </style><style>
+  
+</style><style>
+
    .filtro-box {
   background: white;
   padding: 12px;
@@ -569,7 +661,9 @@ html, body {
 .filtro-box select, .filtro-box input[type="checkbox"] {
   margin-top: 4px;
 }
-  </style><style>
+  
+</style><style>
+
    .card.compact-extreme {
   display: flex;
   justify-content: space-between;
@@ -591,7 +685,9 @@ html, body {
   color: #c00;
   text-align: right;
 }
-  </style><style>
+  
+</style><style>
+
    #filtro-provincia, #filtro-ordinamento {
   margin-left: 6px;
   padding: 4px 8px;
@@ -605,7 +701,9 @@ html, body {
   align-items: center;
   gap: 8px;
 }
-  </style><style>
+  
+</style><style>
+
    #filtro-provincia, #filtro-ordinamento {
   margin: 0;
   padding: 4px 6px;
@@ -635,7 +733,9 @@ html, body {
   color: #333;
   margin-top: 4px;
 }
-  </style><style>
+  
+</style><style>
+
    /* Rendi tutto molto più compatto */
 #filtro-provincia, #filtro-ordinamento {
   margin: 0;
@@ -667,7 +767,9 @@ html, body {
   color: #333;
   margin: 2px 0 0 0;
 }
-  </style><style>
+  
+</style><style>
+
    /* Marker circle and label size adjustment */
 .temperature-label, .leaflet-marker-icon {
   width: 26px !important;
@@ -689,7 +791,9 @@ html, body {
   height: 12px !important;
   transform: translate(-50%, -50%);
 }
-  </style><style>
+  
+</style><style>
+
    /* Marker circle and label size adjustment */
 .temperature-label, .leaflet-marker-icon {
   width: 26px !important;
@@ -714,7 +818,9 @@ html, body {
   visibility: visible !important;
   z-index: 9999 !important;
 }
-  </style><style>
+  
+</style><style>
+
    #anteprima-live {
     background: linear-gradient(to bottom, #f8faff, #ffffff);
     border-radius: 12px;
@@ -768,7 +874,9 @@ html, body {
   #preview-cards .card .btn:hover {
     background-color: #0056b3;
   }
-  </style><style>
+  
+</style><style>
+
    #anteprima-live {
   position: absolute;
   bottom: 0;
@@ -781,18 +889,22 @@ html, body {
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   backdrop-filter: blur(6px);
 }
-  </style><style>
+  
+</style><style>
+
 #map {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   height: auto;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - var(--banner-h, 60px));
 }
 #anteprima-live {
   margin-top: auto;
 }
+
 </style><style>
+
 /* MIGLIORAMENTO GRAFICO CARDS METEO PER MOBILE */
 #tabella .card {
   background: #ffffff;
@@ -853,7 +965,8 @@ html, body {
     font-size: 15px;
   }
 }
-}</style><style>
+</style><style>
+
 /* Stile migliorato per sezione anteprima testuale */
 #anteprima-dati-testuali {
   position: absolute;
@@ -950,7 +1063,9 @@ html, body {
     width: 100%;
   }
 }
+
 </style><style>
+
 /* SEZIONE ANTEPRIMA COMPLETAMENTE RIDISEGNATA PER MOBILE */
 
 /* Contenitore principale */
@@ -1130,7 +1245,8 @@ html, body {
   line-height: 1.7;
   transition: transform 0.2s ease;
 }
-}</style><style>
+</style><style>
+
 /* CORREZIONE POSIZIONE MLG + TESTO STATICO "Dati testuali in tempo reale" */
 #filtro-mlg {
   margin-top: 16px;
@@ -1158,7 +1274,9 @@ html, body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
   text-align: center;
 }
+
 </style><style>
+
 /* FIX larghezza elementi e spostamento */
 .filtro-riga-select {
   display: flex;
@@ -1213,7 +1331,9 @@ html, body {
   color: #003366;
   margin: 12px 0 8px;
 }
+
 </style><style>
+
 #tabella .card {
   background: #ffffff;
   border: 1px solid #bbcfe6;
@@ -1246,7 +1366,9 @@ html, body {
   #tabella .card .intestazione {
     font-size: 17px;
   }
-}</style><style>
+}
+</style><style>
+
 /* MIGLIORAMENTO GRAFICO CARDS ORIGINALE */
 #tabella .card {
   background: #ffffff;
@@ -1305,7 +1427,9 @@ html, body {
   #tabella .card .intestazione {
     font-size: 18px;
   }
-}</style><style>
+}
+</style><style>
+
 #tabella .card {
   background: #ffffff;
   border: 1px solid #ccddee;
@@ -1377,7 +1501,9 @@ html, body {
   #tabella .card .dati .valore {
     font-size: 14px;
   }
-}</style><style>
+}
+</style><style>
+
 /* Allinea le card a sinistra e sfrutta meglio lo spazio disponibile */
 #tabella {
   padding-bottom: 260px; /* Evita sovrapposizione con la sezione fissa */
@@ -1450,7 +1576,9 @@ html, body {
   #tabella .card {
     width: 100%;
   }
-}</style><style>
+}
+</style><style>
+
 #tabella {
   padding-bottom: 260px; /* Evita sovrapposizione con la sezione fissa */
   display: flex;
@@ -1471,7 +1599,9 @@ html, body {
     width: 100%;
   }
 }
+
 </style><style>
+
 #tabella {
   padding-bottom: 260px; /* Evita sovrapposizione con la sezione fissa */
   display: flex !important;
@@ -1494,8 +1624,10 @@ html, body {
     width: 100% !important;
   }
 }
+
 </style>
 <style>
+
 #anteprima-dati-testuali {
   background: #f5f9ff;
   border-top: 2px solid #1a3a9b;
@@ -1570,15 +1702,19 @@ html, body {
 #anteprima-dati-testuali {
   margin-left: 40px;
 }
+
 </style>
 <style>
+
 @media (min-width: 600px) {
   body {
     padding-left: 60px !important;
   }
 }
+
 </style>
 <style>
+
 #tabella .card {
   display: flex;
   justify-content: space-between;
@@ -1633,8 +1769,10 @@ html, body {
   cursor: pointer;
   transition: background 0.3s;
 }
+
 </style>
 <style>
+
 /* Overlay watermark visibile sopra tutto ma non cliccabile */
 .watermark-overlay {
   position: fixed;
@@ -1649,8 +1787,10 @@ html, body {
   background-size: 180px 28px;
   mix-blend-mode: multiply;
 }
+
 </style>
 <style>
+
 /* Aspetto coerente con le card sottostanti */
 #anteprima-dati-testuali {
   background: #ffffff;
@@ -1680,6 +1820,7 @@ html, body {
 #tabella .card:hover {
   transform: scale(1.01);
 }
+
 </style>
 <!-- Fix: uniforma larghezza di tutte le card nella tabella -->
 <style id="fix-card-dimensions">
@@ -2308,6 +2449,23 @@ window.addEventListener('load', () => {
 }</style>
 </head>
 <body>
+<header class="mlg-banner" role="banner">
+    <div class="mlg-inner">
+      <div class="mlg-title">
+        <span class="mlg-dot" aria-hidden="true"></span>
+        <h1>Meteo Lo Gullo</h1>
+      </div>
+
+      <nav class="mlg-nav" aria-label="Navigazione principale">
+        <a class="mlg-pill" href="#">Home</a>
+        <a class="mlg-pill" href="#">MLG Map</a>
+        <a class="mlg-pill" href="#">News</a>
+        <a class="mlg-pill" href="#">Chi Siamo</a>
+        <a class="mlg-pill" href="#">Curiosità</a>
+      </nav>
+    </div>
+  </header>
+
 
 <div id="map-loader-banner">
   <div class="spinner"></div>
@@ -2339,9 +2497,6 @@ window.addEventListener('load', () => {
 <button class="sidebar-btn" onclick="location.reload();" style="background-color:#009688;color:white;" title="Ricarica pagina">REF</button>
 <button class="sidebar-btn" id="btnPlot" onclick="togglePlot()" style="background:#8b00ff;color:#fff" title="Interpolazione">PLOT</button></div>
 <!-- Striscia con la scritta Meteo Lo Gullo -->
-<div id="banner">
-  - Meteo Lo Gullo
-</div>
 <div id="radar-controls-container">
 <div id="radar-time-label" style="margin-top: 4px; font-size: 12px; color: #333; text-align: center;"></div>
 </div>
@@ -8242,6 +8397,19 @@ window.addEventListener('load', function(){
        sul contenitore mappa, continua a funzionare perché riceve gli
        stessi eventi (la propagazione non viene bloccata). */
   })();
+</script>
+<script>
+(function(){
+  function updateBannerH(){
+    var el = document.querySelector('.mlg-banner');
+    var h = el ? el.offsetHeight : 60;
+    document.documentElement.style.setProperty('--banner-h', h + 'px');
+  }
+  window.addEventListener('load', updateBannerH);
+  window.addEventListener('resize', updateBannerH);
+  // small delay after fonts load / dynamic content
+  setTimeout(updateBannerH, 400);
+})();
 </script>
 </body>
 
